@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from vidsaver.player import play
+from vidsaver.player import mpv_argv, play
 
 VIDEOS = [Path("/videos/a.mp4")]
 
@@ -65,6 +65,65 @@ def _play_primary() -> tuple[int, list[FakeProcess], MagicMock]:
     return code, procs, count
 
 
+def _input_conf(argv: list[str]) -> Path:
+    return Path(next(a.split("=", 1)[1] for a in argv if a.startswith("--input-conf=")))
+
+
+class MpvArgvTests(unittest.TestCase):
+    def test_primary_screen_has_no_null_audio(self) -> None:
+        argv = mpv_argv(
+            "/usr/bin/mpv",
+            [Path("/videos/a.mp4")],
+            Path("/tmp/input.conf"),
+            screen=0,
+            mute_audio=False,
+        )
+        self.assertEqual(
+            argv,
+            [
+                "/usr/bin/mpv",
+                "--fullscreen",
+                "--no-border",
+                "--osc=no",
+                "--osd-level=0",
+                "--cursor-autohide=always",
+                "--loop-playlist=inf",
+                "--screen=0",
+                "--fs-screen=0",
+                "--input-conf=/tmp/input.conf",
+                "--",
+                "/videos/a.mp4",
+            ],
+        )
+
+    def test_extra_screen_is_muted(self) -> None:
+        argv = mpv_argv(
+            "/usr/bin/mpv",
+            [Path("/videos/a.mp4")],
+            Path("/tmp/input.conf"),
+            screen=1,
+            mute_audio=True,
+        )
+        self.assertEqual(
+            argv,
+            [
+                "/usr/bin/mpv",
+                "--fullscreen",
+                "--no-border",
+                "--osc=no",
+                "--osd-level=0",
+                "--cursor-autohide=always",
+                "--loop-playlist=inf",
+                "--screen=1",
+                "--fs-screen=1",
+                "--input-conf=/tmp/input.conf",
+                "--ao=null",
+                "--",
+                "/videos/a.mp4",
+            ],
+        )
+
+
 class PlayAllScreensTests(unittest.TestCase):
     def test_starts_one_process_per_display(self) -> None:
         _, procs = _play_all(n_displays=2)
@@ -103,14 +162,39 @@ class PlayAllScreensTests(unittest.TestCase):
 
     def test_mutes_extra_windows_only(self) -> None:
         _, procs = _play_all(n_displays=2)
-        self.assertNotIn("--ao=null", procs[0].argv)
-        self.assertIn("--ao=null", procs[1].argv)
+        self.assertEqual(
+            procs[0].argv,
+            mpv_argv(
+                "/usr/bin/mpv",
+                VIDEOS,
+                _input_conf(procs[0].argv),
+                screen=0,
+                mute_audio=False,
+            ),
+        )
+        self.assertEqual(
+            procs[1].argv,
+            mpv_argv(
+                "/usr/bin/mpv",
+                VIDEOS,
+                _input_conf(procs[1].argv),
+                screen=1,
+                mute_audio=True,
+            ),
+        )
 
 
 class PlayPrimaryTests(unittest.TestCase):
     def test_starts_one_process(self) -> None:
         _, procs, _ = _play_primary()
         self.assertEqual(len(procs), 1)
+        input_conf = Path(
+            next(a.split("=", 1)[1] for a in procs[0].argv if a.startswith("--input-conf="))
+        )
+        self.assertEqual(
+            procs[0].argv,
+            mpv_argv("/usr/bin/mpv", VIDEOS, input_conf, screen=0, mute_audio=False),
+        )
 
     def test_does_not_count_displays(self) -> None:
         _, _, count = _play_primary()

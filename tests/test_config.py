@@ -53,7 +53,7 @@ class LoadConfigFileTests(unittest.TestCase):
         missing = self.root / "missing.toml"
         with self.assertRaises(ConfigError) as ctx:
             load_config(config_path=missing)
-        self.assertIn(str(missing), str(ctx.exception))
+        self.assertEqual(str(ctx.exception), f"Config file not found: {missing}")
 
     def test_explicit_config_ignores_search_paths(self) -> None:
         _write_toml(self.cwd_dir / "config.toml", 'video_dir = "/from-cwd"\n')
@@ -127,20 +127,28 @@ class LoadConfigFileTests(unittest.TestCase):
     def test_no_dir_and_no_config_raises(self) -> None:
         with self.assertRaises(ConfigError) as ctx:
             load_config()
-        self.assertIn("No video folder set", str(ctx.exception))
+        self.assertTrue(
+            str(ctx.exception).startswith("No video folder set"),
+            msg=str(ctx.exception),
+        )
 
     def test_video_dir_empty_string_raises(self) -> None:
         path = _write_toml(self.root / "blank.toml", 'video_dir = ""\n')
         with self.assertRaises(ConfigError) as ctx:
             load_config(config_path=path)
-        self.assertIn("empty string", str(ctx.exception))
-        self.assertIn(str(path), str(ctx.exception))
+        self.assertTrue(
+            str(ctx.exception).startswith(f"video_dir in {path} is an empty string"),
+            msg=str(ctx.exception),
+        )
 
     def test_invalid_toml_raises(self) -> None:
         path = _write_toml(self.root / "bad.toml", "video_dir =\n")
         with self.assertRaises(ConfigError) as ctx:
             load_config(config_path=path)
-        self.assertIn("Invalid TOML", str(ctx.exception))
+        self.assertTrue(
+            str(ctx.exception).startswith(f"Invalid TOML in {path}: "),
+            msg=str(ctx.exception),
+        )
 
     # ~ expansion
 

@@ -25,20 +25,22 @@ class ScanPlaylistTests(unittest.TestCase):
         missing = self.root / "nope"
         with self.assertRaises(PlaylistError) as ctx:
             scan(missing)
-        self.assertIn("does not exist", str(ctx.exception))
-        self.assertIn(str(missing), str(ctx.exception))
+        self.assertEqual(str(ctx.exception), f"Video folder does not exist: {missing}")
 
     def test_file_instead_of_folder_raises(self) -> None:
         path = _touch(self.root / "not-a-dir")
         with self.assertRaises(PlaylistError) as ctx:
             scan(path)
-        self.assertIn("not a directory", str(ctx.exception))
+        self.assertEqual(str(ctx.exception), f"Video path is not a directory: {path}")
 
     def test_no_matching_videos_raises(self) -> None:
         _touch(self.root / "notes.txt")
         with self.assertRaises(PlaylistError) as ctx:
             scan(self.root)
-        self.assertIn("No video files found", str(ctx.exception))
+        self.assertTrue(
+            str(ctx.exception).startswith(f"No video files found in {self.root}"),
+            msg=str(ctx.exception),
+        )
 
     # Extensions
 
