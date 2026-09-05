@@ -6,13 +6,16 @@ Play every video in a folder fullscreen, looping the playlist. Quit with **Escap
 
 `./run.sh` installs [mpv](https://mpv.io/) via apt if it is missing, then starts the app. No `pip install` is required.
 
-```bash
-./run.sh
-```
 
-Set `video_dir` in `./config.toml` (copy from `config.example.toml`) or `~/.config/vidsaver/config.toml`. Local config wins.
+Python 3.11+ is required. On non-apt systems, install mpv yourself, then use the same script.
 
-`screens` is `"primary"` (default: one window on the first display) or `"all"` (one window on each connected display). With `"all"`, audio plays on the primary display only; Escape or **q** in any window stops playback on every screen.
+## Configure
+
+Copy `config.example.toml` to `./config.toml` or `~/.config/vidsaver/config.toml`. Local config wins.
+
+- **`video_dir`** — folder of videos (required). Scanned non-recursively for `mp4`, `mkv`, `webm`, `avi`, `mov`, `m4v`, and `wmv`.
+- **`screens`** — `"primary"` (default: one window on the first display) or `"all"` (one window on each connected display). With `"all"`, Escape or **q** in any window stops playback on every screen.
+- **`mute`** — `true` (default: no audio on any window) or `false` (audio on the primary window only). Extra windows are always silent.
 
 Overrides:
 
@@ -22,8 +25,3 @@ Overrides:
 ```
 
 `--dir` wins over `video_dir` in the config file.
-
-The folder is scanned non-recursively for `mp4`, `mkv`, `webm`, `avi`, `mov`, `m4v`, and `wmv`.
-
-Python 3.11+ is required. On non-apt systems, install mpv yourself, then use the same script.
-

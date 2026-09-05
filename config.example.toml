@@ -7,6 +7,10 @@ video_dir = "/path/to/videos"
 # all: one fullscreen window on each connected display
 screens = "primary"
 
+# true (default): --ao=null on every mpv process
+# false: audio on the primary display only
+mute = true
+
 # Future (unused in the MVP):
 # rotate_minutes = 15
 # idle_minutes = 10

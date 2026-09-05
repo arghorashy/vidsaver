@@ -22,11 +22,12 @@ class PlayerError(Exception):
     """mpv could not be started."""
 
 
-def play(videos: list[Path], screens: str = "primary") -> int:
+def play(videos: list[Path], screens: str = "primary", mute: bool = True) -> int:
     """Play *videos* looping fullscreen in mpv. Returns mpv's exit code.
 
     ``screens="primary"`` uses one window on display 0. ``screens="all"``
     starts one window per connected display; extra windows have no audio.
+    ``mute=True`` (the default) uses ``--ao=null`` on every window.
     """
     mpv = shutil.which("mpv")
     if mpv is None:
@@ -58,14 +59,14 @@ def play(videos: list[Path], screens: str = "primary") -> int:
     procs: list[subprocess.Popen[bytes]] = []
     try:
         for index in range(count):
-            # Mute every window after the first so the same playlist is not
-            # mixed through the speakers N times.
+            # Mute extras so the playlist is not mixed N times. mute=True
+            # (default) silences the primary window as well.
             argv = mpv_argv(
                 mpv,
                 videos,
                 input_conf,
                 screen=index,
-                mute_audio=index != 0,
+                mute_audio=mute or index != 0,
             )
             procs.append(subprocess.Popen(argv))
         if len(procs) == 1:

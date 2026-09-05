@@ -22,6 +22,7 @@ class ConfigError(Exception):
 class Config:
     video_dir: Path
     screens: Screens = "primary"
+    mute: bool = True
     config_path: Path | None = None
 
 
@@ -30,6 +31,7 @@ def load_config(config_path: Path | None = None, video_dir: Path | None = None) 
 
     ``video_dir`` (``--dir``) overrides ``video_dir`` from the file.
     ``screens`` is ``"primary"`` (default) or ``"all"``.
+    ``mute`` is ``true`` (default) or ``false``.
 
     If ``config_path`` (``--config``) is given, that file is required and no
     other locations are checked. Otherwise the first existing file wins:
@@ -67,6 +69,7 @@ def load_config(config_path: Path | None = None, video_dir: Path | None = None) 
     return Config(
         video_dir=Path(raw_dir).expanduser(),
         screens=_parse_screens(file_values.get("screens", "primary"), used_path),
+        mute=_parse_mute(file_values.get("mute", True), used_path),
         config_path=used_path,
     )
 
@@ -77,6 +80,15 @@ def _parse_screens(raw: object, config_path: Path | None) -> Screens:
     where = f" in {config_path}" if config_path is not None else ""
     raise ConfigError(
         f'screens{where} must be "primary" or "all", not {raw!r}.'
+    )
+
+
+def _parse_mute(raw: object, config_path: Path | None) -> bool:
+    if raw is True or raw is False:
+        return raw
+    where = f" in {config_path}" if config_path is not None else ""
+    raise ConfigError(
+        f"mute{where} must be true or false, not {raw!r}."
     )
 
 

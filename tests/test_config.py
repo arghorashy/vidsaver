@@ -73,6 +73,7 @@ class LoadConfigFileTests(unittest.TestCase):
         config = load_config(video_dir=Path("/only-cli"))
         self.assertEqual(config.video_dir, Path("/only-cli"))
         self.assertEqual(config.screens, "primary")
+        self.assertIs(config.mute, True)
         self.assertIsNone(config.config_path)
 
     # screens
@@ -120,6 +121,41 @@ class LoadConfigFileTests(unittest.TestCase):
         self.assertEqual(
             str(ctx.exception),
             f'screens in {path} must be "primary" or "all", not {""!r}.',
+        )
+
+    # mute
+
+    def test_omitted_mute_defaults_to_true(self) -> None:
+        path = _write_toml(self.root / "explicit.toml", 'video_dir = "/videos/a"\n')
+        config = load_config(config_path=path)
+        self.assertIs(config.mute, True)
+
+    def test_mute_true_loads(self) -> None:
+        path = _write_toml(
+            self.root / "explicit.toml",
+            'video_dir = "/videos/a"\nmute = true\n',
+        )
+        config = load_config(config_path=path)
+        self.assertIs(config.mute, True)
+
+    def test_mute_false_loads(self) -> None:
+        path = _write_toml(
+            self.root / "explicit.toml",
+            'video_dir = "/videos/a"\nmute = false\n',
+        )
+        config = load_config(config_path=path)
+        self.assertIs(config.mute, False)
+
+    def test_mute_invalid_raises(self) -> None:
+        path = _write_toml(
+            self.root / "explicit.toml",
+            'video_dir = "/videos/a"\nmute = "yes"\n',
+        )
+        with self.assertRaises(ConfigError) as ctx:
+            load_config(config_path=path)
+        self.assertEqual(
+            str(ctx.exception),
+            f"mute in {path} must be true or false, not {'yes'!r}.",
         )
 
     # Missing video_dir, blank string, or invalid TOML

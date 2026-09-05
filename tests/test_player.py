@@ -43,25 +43,25 @@ def _fake_popen(procs: list[FakeProcess]) -> object:
     return fake_popen
 
 
-def _play_all(n_displays: int = 2) -> tuple[int, list[FakeProcess]]:
+def _play_all(n_displays: int = 2, *, mute: bool = True) -> tuple[int, list[FakeProcess]]:
     procs: list[FakeProcess] = []
     with (
         patch("vidsaver.player.shutil.which", return_value="/usr/bin/mpv"),
         patch("vidsaver.player.screen_count", return_value=n_displays),
         patch("vidsaver.player.subprocess.Popen", side_effect=_fake_popen(procs)),
     ):
-        code = play(VIDEOS, screens="all")
+        code = play(VIDEOS, screens="all", mute=mute)
     return code, procs
 
 
-def _play_primary() -> tuple[int, list[FakeProcess], MagicMock]:
+def _play_primary(*, mute: bool = True) -> tuple[int, list[FakeProcess], MagicMock]:
     procs: list[FakeProcess] = []
     with (
         patch("vidsaver.player.shutil.which", return_value="/usr/bin/mpv"),
         patch("vidsaver.player.screen_count") as count,
         patch("vidsaver.player.subprocess.Popen", side_effect=_fake_popen(procs)),
     ):
-        code = play(VIDEOS, screens="primary")
+        code = play(VIDEOS, screens="primary", mute=mute)
     return code, procs, count
 
 
@@ -161,7 +161,7 @@ class PlayAllScreensTests(unittest.TestCase):
         )
 
     def test_mutes_extra_windows_only(self) -> None:
-        _, procs = _play_all(n_displays=2)
+        _, procs = _play_all(n_displays=2, mute=False)
         self.assertEqual(
             procs[0].argv,
             mpv_argv(
@@ -183,6 +183,11 @@ class PlayAllScreensTests(unittest.TestCase):
             ),
         )
 
+    def test_mutes_every_window_when_mute_is_true(self) -> None:
+        _, procs = _play_all(n_displays=2, mute=True)
+        self.assertIn("--ao=null", procs[0].argv)
+        self.assertIn("--ao=null", procs[1].argv)
+
 
 class PlayPrimaryTests(unittest.TestCase):
     def test_starts_one_process(self) -> None:
@@ -193,7 +198,7 @@ class PlayPrimaryTests(unittest.TestCase):
         )
         self.assertEqual(
             procs[0].argv,
-            mpv_argv("/usr/bin/mpv", VIDEOS, input_conf, screen=0, mute_audio=False),
+            mpv_argv("/usr/bin/mpv", VIDEOS, input_conf, screen=0, mute_audio=True),
         )
 
     def test_does_not_count_displays(self) -> None:
@@ -208,5 +213,9 @@ class PlayPrimaryTests(unittest.TestCase):
         )
 
     def test_does_not_mute(self) -> None:
-        _, procs, _ = _play_primary()
+        _, procs, _ = _play_primary(mute=False)
         self.assertNotIn("--ao=null", procs[0].argv)
+
+    def test_mutes_when_mute_is_true(self) -> None:
+        _, procs, _ = _play_primary(mute=True)
+        self.assertIn("--ao=null", procs[0].argv)

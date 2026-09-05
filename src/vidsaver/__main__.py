@@ -32,7 +32,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         config = load_config(config_path=args.config, video_dir=args.video_dir)
         videos = scan(config.video_dir)
-        return play(videos, screens=config.screens)
+        return play(videos, screens=config.screens, mute=config.mute)
     except (ConfigError, PlaylistError, PlayerError) as exc:
         print(exc, file=sys.stderr)
         return 1
