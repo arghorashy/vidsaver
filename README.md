@@ -13,7 +13,7 @@ Python 3.11+ is required. On non-apt systems, install mpv yourself, then use the
 
 Copy `config.example.toml` to `./config.toml` or `~/.config/vidsaver/config.toml`. Local config wins.
 
-- **`video_dir`** — folder of videos (required). Scanned non-recursively for `mp4`, `mkv`, `webm`, `avi`, `mov`, `m4v`, and `wmv`.
+- **`video_dir`** — folder of videos (required). Scanned non-recursively for `mp4`, `mkv`, `webm`, `avi`, `mov`, `m4v`, `wmv`, `3gp`, and `3gpp`.
 - **`screens`** — `"primary"` (default: one window on the first display) or `"all"` (one window on each connected display). With `"all"`, Escape or **q** in any window stops playback on every screen.
 - **`mute`** — `true` (default: no audio on any window) or `false` (audio on the primary window only). Extra windows are always silent.
 

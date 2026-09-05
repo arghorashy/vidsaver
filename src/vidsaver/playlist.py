@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 VIDEO_EXTENSIONS = frozenset(
-    {".mp4", ".mkv", ".webm", ".avi", ".mov", ".m4v", ".wmv"}
+    {".mp4", ".mkv", ".webm", ".avi", ".mov", ".m4v", ".wmv", ".3gp", ".3gpp"}
 )
 
 
