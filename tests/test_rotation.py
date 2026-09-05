@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from vidsaver.rotation import _rotate
+from vidsaver.rotation import _let_file_finish, _rotate
 
 A = Path("/videos/a.mp4")
 B = Path("/videos/b.mp4")
@@ -45,6 +45,11 @@ class RotateTests(unittest.TestCase):
         _rotate(playback, offsets, finished=False)
         self.assertEqual(offsets[B], 8.0)
         self.assertEqual(playback.go_next_at, 15.0)
+
+    def test_lets_file_finish_when_leftover_is_under_a_quarter_slot(self) -> None:
+        self.assertTrue(_let_file_finish(2.0, 10.0))
+        self.assertFalse(_let_file_finish(2.5, 10.0))
+        self.assertFalse(_let_file_finish(None, 10.0))
 
     def test_finished_file_resets_offset_to_zero(self) -> None:
         offsets = {A: 40.0}
