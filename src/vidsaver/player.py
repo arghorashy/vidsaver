@@ -4,9 +4,11 @@ import shutil
 import signal
 import subprocess
 import tempfile
-import time
 from pathlib import Path
 
+from vidsaver.mpv_ipc import MpvIpc
+from vidsaver.playback import Playback
+from vidsaver.rotation import run_rotation
 from vidsaver.screens import screen_count
 
 MPV_INSTALL_HINT = "mpv is not installed. Install it with: sudo apt install mpv"
@@ -22,12 +24,19 @@ class PlayerError(Exception):
     """mpv could not be started."""
 
 
-def play(videos: list[Path], screens: str = "primary", mute: bool = True) -> int:
+def play(
+    videos: list[Path],
+    screens: str = "primary",
+    mute: bool = True,
+    rotate_minutes: float = 15,
+) -> int:
     """Play *videos* looping fullscreen in mpv. Returns mpv's exit code.
 
     ``screens="primary"`` uses one window on display 0. ``screens="all"``
     starts one window per connected display; extra windows have no audio.
-    ``mute=True`` (the default) uses ``--ao=null`` on every window.
+    ``mute=True`` (the default) uses ``--no-audio`` on every window.
+    After ``rotate_minutes``, jump to the next file; later in this process,
+    that file resumes at its last offset.
     """
     mpv = shutil.which("mpv")
     if mpv is None:
@@ -46,6 +55,8 @@ def play(videos: list[Path], screens: str = "primary", mute: bool = True) -> int
         handle.write(MPV_INPUT_CONF)
         input_conf = Path(handle.name)
 
+    ipc_dir = Path(tempfile.mkdtemp(prefix="vidsaver-ipc-"))
+
     # One window on screen 0, or one window per detected display.
     count = screen_count() if screens == "all" else 1
     if count < 1:
@@ -57,30 +68,34 @@ def play(videos: list[Path], screens: str = "primary", mute: bool = True) -> int
     previous_sigterm = signal.getsignal(signal.SIGTERM)
     signal.signal(signal.SIGTERM, _exit_on_sigterm)
     procs: list[subprocess.Popen[bytes]] = []
+    clients: list[MpvIpc] = []
     try:
         for index in range(count):
             # Mute extras so the playlist is not mixed N times. mute=True
             # (default) silences the primary window as well.
+            ipc_server = ipc_dir / f"mpv-{index}"
             argv = mpv_argv(
                 mpv,
                 videos,
                 input_conf,
                 screen=index,
                 mute_audio=mute or index != 0,
+                ipc_server=ipc_server,
             )
             procs.append(subprocess.Popen(argv))
-        if len(procs) == 1:
-            return procs[0].wait()
-        # Any window quitting (Escape/q) should tear down the rest.
-        return _wait_until_any_exits(procs)
+            clients.append(MpvIpc(ipc_server))
+        return run_rotation(Playback(procs, clients), rotate_minutes)
     except OSError as exc:
         raise PlayerError(f"Failed to launch mpv: {exc}") from exc
     finally:
         # Stop leftovers after a normal return, Ctrl+C, or SIGTERM.
+        for client in clients:
+            client.close()
         for proc in procs:
             _stop_process(proc)
         signal.signal(signal.SIGTERM, previous_sigterm)
         input_conf.unlink(missing_ok=True)
+        shutil.rmtree(ipc_dir, ignore_errors=True)
 
 
 def mpv_argv(
@@ -90,6 +105,7 @@ def mpv_argv(
     *,
     screen: int,
     mute_audio: bool,
+    ipc_server: Path | None = None,
 ) -> list[str]:
     """Build the mpv command for one display."""
     argv = [
@@ -100,28 +116,24 @@ def mpv_argv(
         "--osd-level=0",
         "--cursor-autohide=always",
         "--loop-playlist=inf",
+        # Pause at EOF instead of auto-advancing. Rotation issues
+        # playlist-next so the next file can be seeked before it plays.
+        "--keep-open=always",
         # Pin both the window and the fullscreen target; otherwise a WM may
         # place the window on screen 0 and fullscreen it on another.
         f"--screen={screen}",
         f"--fs-screen={screen}",
         f"--input-conf={input_conf}",
     ]
+    if ipc_server is not None:
+        argv.append(f"--input-ipc-server={ipc_server}")
     if mute_audio:
-        # Discard audio instead of --mute so this instance never opens a device.
-        argv.append("--ao=null")
+        # Disable audio entirely. --ao=null still inits a driver, and
+        # playlist-next while paused logs "illegal state: start() while paused".
+        argv.append("--no-audio")
     # "--" so a video named like an option is still treated as a file.
     argv.extend(["--", *[str(path) for path in videos]])
     return argv
-
-
-def _wait_until_any_exits(procs: list[subprocess.Popen[bytes]]) -> int:
-    # poll() is non-blocking; sleep so this is not a busy loop.
-    while True:
-        for proc in procs:
-            code = proc.poll()
-            if code is not None:
-                return code
-        time.sleep(0.05)
 
 
 def _stop_process(proc: subprocess.Popen[bytes]) -> None:

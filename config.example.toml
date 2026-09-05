@@ -7,11 +7,15 @@ video_dir = "/path/to/videos"
 # all: one fullscreen window on each connected display
 screens = "primary"
 
-# true (default): --ao=null on every mpv process
+# true (default): --no-audio on every mpv process
 # false: audio on the primary display only
 mute = true
 
-# Future (unused in the MVP):
-# rotate_minutes = 15
+# Minutes on the current file before jumping to the next (default 15).
+# After a full pass in this run, each file resumes at its last offset.
+# Progress is not saved when you quit.
+rotate_minutes = 15
+
+# Future (unused):
 # idle_minutes = 10
 # exit_on = "escape"   # later: "any-input"

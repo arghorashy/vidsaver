@@ -74,6 +74,7 @@ class LoadConfigFileTests(unittest.TestCase):
         self.assertEqual(config.video_dir, Path("/only-cli"))
         self.assertEqual(config.screens, "primary")
         self.assertIs(config.mute, True)
+        self.assertEqual(config.rotate_minutes, 15)
         self.assertIsNone(config.config_path)
 
     # screens
@@ -156,6 +157,58 @@ class LoadConfigFileTests(unittest.TestCase):
         self.assertEqual(
             str(ctx.exception),
             f"mute in {path} must be true or false, not {'yes'!r}.",
+        )
+
+    # rotate_minutes
+
+    def test_omitted_rotate_minutes_defaults_to_15(self) -> None:
+        path = _write_toml(self.root / "explicit.toml", 'video_dir = "/videos/a"\n')
+        config = load_config(config_path=path)
+        self.assertEqual(config.rotate_minutes, 15)
+
+    def test_rotate_minutes_loads(self) -> None:
+        path = _write_toml(
+            self.root / "explicit.toml",
+            'video_dir = "/videos/a"\nrotate_minutes = 1.5\n',
+        )
+        config = load_config(config_path=path)
+        self.assertEqual(config.rotate_minutes, 1.5)
+
+    def test_rotate_minutes_zero_raises(self) -> None:
+        path = _write_toml(
+            self.root / "explicit.toml",
+            'video_dir = "/videos/a"\nrotate_minutes = 0\n',
+        )
+        with self.assertRaises(ConfigError) as ctx:
+            load_config(config_path=path)
+        self.assertEqual(
+            str(ctx.exception),
+            f"rotate_minutes in {path} must be greater than 0, not 0.",
+        )
+
+    def test_rotate_minutes_negative_raises(self) -> None:
+        path = _write_toml(
+            self.root / "explicit.toml",
+            'video_dir = "/videos/a"\nrotate_minutes = -1\n',
+        )
+        with self.assertRaises(ConfigError) as ctx:
+            load_config(config_path=path)
+        self.assertEqual(
+            str(ctx.exception),
+            f"rotate_minutes in {path} must be greater than 0, not -1.",
+        )
+
+    def test_rotate_minutes_invalid_raises(self) -> None:
+        path = _write_toml(
+            self.root / "explicit.toml",
+            'video_dir = "/videos/a"\nrotate_minutes = "soon"\n',
+        )
+        with self.assertRaises(ConfigError) as ctx:
+            load_config(config_path=path)
+        self.assertEqual(
+            str(ctx.exception),
+            f"rotate_minutes in {path} must be a number greater than 0, "
+            f"not {'soon'!r}.",
         )
 
     # Missing video_dir, blank string, or invalid TOML

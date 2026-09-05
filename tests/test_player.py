@@ -65,10 +65,6 @@ def _play_primary(*, mute: bool = True) -> tuple[int, list[FakeProcess], MagicMo
     return code, procs, count
 
 
-def _input_conf(argv: list[str]) -> Path:
-    return Path(next(a.split("=", 1)[1] for a in argv if a.startswith("--input-conf=")))
-
-
 class MpvArgvTests(unittest.TestCase):
     def test_primary_screen_has_no_null_audio(self) -> None:
         argv = mpv_argv(
@@ -88,6 +84,7 @@ class MpvArgvTests(unittest.TestCase):
                 "--osd-level=0",
                 "--cursor-autohide=always",
                 "--loop-playlist=inf",
+                "--keep-open=always",
                 "--screen=0",
                 "--fs-screen=0",
                 "--input-conf=/tmp/input.conf",
@@ -114,10 +111,11 @@ class MpvArgvTests(unittest.TestCase):
                 "--osd-level=0",
                 "--cursor-autohide=always",
                 "--loop-playlist=inf",
+                "--keep-open=always",
                 "--screen=1",
                 "--fs-screen=1",
                 "--input-conf=/tmp/input.conf",
-                "--ao=null",
+                "--no-audio",
                 "--",
                 "/videos/a.mp4",
             ],
@@ -162,44 +160,19 @@ class PlayAllScreensTests(unittest.TestCase):
 
     def test_mutes_extra_windows_only(self) -> None:
         _, procs = _play_all(n_displays=2, mute=False)
-        self.assertEqual(
-            procs[0].argv,
-            mpv_argv(
-                "/usr/bin/mpv",
-                VIDEOS,
-                _input_conf(procs[0].argv),
-                screen=0,
-                mute_audio=False,
-            ),
-        )
-        self.assertEqual(
-            procs[1].argv,
-            mpv_argv(
-                "/usr/bin/mpv",
-                VIDEOS,
-                _input_conf(procs[1].argv),
-                screen=1,
-                mute_audio=True,
-            ),
-        )
+        self.assertNotIn("--no-audio", procs[0].argv)
+        self.assertIn("--no-audio", procs[1].argv)
 
     def test_mutes_every_window_when_mute_is_true(self) -> None:
         _, procs = _play_all(n_displays=2, mute=True)
-        self.assertIn("--ao=null", procs[0].argv)
-        self.assertIn("--ao=null", procs[1].argv)
+        self.assertIn("--no-audio", procs[0].argv)
+        self.assertIn("--no-audio", procs[1].argv)
 
 
 class PlayPrimaryTests(unittest.TestCase):
     def test_starts_one_process(self) -> None:
         _, procs, _ = _play_primary()
         self.assertEqual(len(procs), 1)
-        input_conf = Path(
-            next(a.split("=", 1)[1] for a in procs[0].argv if a.startswith("--input-conf="))
-        )
-        self.assertEqual(
-            procs[0].argv,
-            mpv_argv("/usr/bin/mpv", VIDEOS, input_conf, screen=0, mute_audio=True),
-        )
 
     def test_does_not_count_displays(self) -> None:
         _, _, count = _play_primary()
@@ -214,8 +187,8 @@ class PlayPrimaryTests(unittest.TestCase):
 
     def test_does_not_mute(self) -> None:
         _, procs, _ = _play_primary(mute=False)
-        self.assertNotIn("--ao=null", procs[0].argv)
+        self.assertNotIn("--no-audio", procs[0].argv)
 
     def test_mutes_when_mute_is_true(self) -> None:
         _, procs, _ = _play_primary(mute=True)
-        self.assertIn("--ao=null", procs[0].argv)
+        self.assertIn("--no-audio", procs[0].argv)

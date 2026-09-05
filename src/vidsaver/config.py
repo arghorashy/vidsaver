@@ -23,6 +23,7 @@ class Config:
     video_dir: Path
     screens: Screens = "primary"
     mute: bool = True
+    rotate_minutes: float = 15
     config_path: Path | None = None
 
 
@@ -32,6 +33,7 @@ def load_config(config_path: Path | None = None, video_dir: Path | None = None) 
     ``video_dir`` (``--dir``) overrides ``video_dir`` from the file.
     ``screens`` is ``"primary"`` (default) or ``"all"``.
     ``mute`` is ``true`` (default) or ``false``.
+    ``rotate_minutes`` is minutes per file before advancing (default 15).
 
     If ``config_path`` (``--config``) is given, that file is required and no
     other locations are checked. Otherwise the first existing file wins:
@@ -70,6 +72,9 @@ def load_config(config_path: Path | None = None, video_dir: Path | None = None) 
         video_dir=Path(raw_dir).expanduser(),
         screens=_parse_screens(file_values.get("screens", "primary"), used_path),
         mute=_parse_mute(file_values.get("mute", True), used_path),
+        rotate_minutes=_parse_rotate_minutes(
+            file_values.get("rotate_minutes", 15), used_path
+        ),
         config_path=used_path,
     )
 
@@ -90,6 +95,21 @@ def _parse_mute(raw: object, config_path: Path | None) -> bool:
     raise ConfigError(
         f"mute{where} must be true or false, not {raw!r}."
     )
+
+
+def _parse_rotate_minutes(raw: object, config_path: Path | None) -> float:
+    # bool is a subclass of int; reject true/false before the number check.
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        where = f" in {config_path}" if config_path is not None else ""
+        raise ConfigError(
+            f"rotate_minutes{where} must be a number greater than 0, not {raw!r}."
+        )
+    if raw <= 0:
+        where = f" in {config_path}" if config_path is not None else ""
+        raise ConfigError(
+            f"rotate_minutes{where} must be greater than 0, not {raw}."
+        )
+    return float(raw)
 
 
 def _config_candidates() -> tuple[Path, ...]:
