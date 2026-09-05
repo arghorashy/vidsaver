@@ -3,7 +3,7 @@
 Intent: each pass shows every file once, in random order, so nothing
 repeats until the whole folder has played. Across passes, the last two
 files are held back so the clip that just ended is not the next one
-(unless the folder is so small there is no other choice).
+(only a single-file folder has no other choice).
 
 mpv takes a static playlist and loops it. This module cannot reshuffle
 while mpv is running, so ``get_shuffled_playlist`` precomputes several passes
@@ -46,14 +46,10 @@ class _ShuffleBag:
 
     def _refill(self) -> None:
         eligible = [path for path in self._all if path not in self._recent]
-        if not eligible:
-            order = list(self._all)
-            self._rng.shuffle(order)
-            self._queue = deque(order)
-            return
         self._rng.shuffle(eligible)
-        # Last two play after the rest, older first, so the video that
-        # just ended is not the next one (needed when there are 3 files).
+        # Recent always last, oldest first. The clip that just ended is
+        # at the end, so it is not the next one (2-file and 3-file).
+        # One file: eligible is empty and recent is that file.
         eligible.extend(self._recent)
         self._queue = deque(eligible)
 

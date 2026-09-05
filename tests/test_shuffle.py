@@ -39,6 +39,16 @@ class ShuffledPlaylistTests(unittest.TestCase):
                         remaining.remove(pick)
                         recent.append(pick)
 
+    def test_no_back_to_back_when_library_has_two_or_more(self) -> None:
+        for n in (2, 3, 4, 5):
+            videos = _library(n)
+            for seed in range(40):
+                with self.subTest(n=n, seed=seed):
+                    seq = get_shuffled_playlist(videos, passes=8, rng=random.Random(seed))
+                    for index, (a, b) in enumerate(zip(seq, seq[1:])):
+                        self.assertNotEqual(a, b, msg=f"index={index}")
+                    self.assertNotEqual(seq[0], seq[-1])
+
 
 if __name__ == "__main__":
     unittest.main()
