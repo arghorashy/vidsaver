@@ -64,6 +64,16 @@ class Playback:
             return 0.0
         return float(raw)
 
+    def duration(self) -> float | None:
+        """Length of the current file in seconds, or None if unknown."""
+        try:
+            raw = self._clients[0].command("get_property", "duration")
+        except MpvIpcError as exc:
+            raise PlaybackError(str(exc)) from exc
+        if raw is None:
+            return None
+        return float(raw)
+
     def time_remaining(self) -> float | None:
         """Seconds left in the current file, or None if mpv does not know."""
         try:

@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from vidsaver.fingerprint import content_id_for
 from vidsaver.rotation import _let_file_finish, _rotate
 from vidsaver.state import Catalog, Offsets
 
@@ -20,6 +21,9 @@ class FakePlayback:
 
     def time_pos(self) -> float:
         return self._time
+
+    def duration(self) -> float | None:
+        return 46.0
 
     def peek_next_path(self) -> Path:
         return self._next
@@ -49,9 +53,22 @@ class RotateTests(unittest.TestCase):
         _rotate(playback, self.offsets, finished=False)
         self.assertEqual(self.offsets.get_offset(self.a), 15.0)
         self.assertEqual(playback.go_next_at, 0.0)
+        stats = self.catalog.get_stats(content_id_for(self.a))
+        assert stats is not None
+        self.assertEqual(stats.clip_count, 1)
+        self.assertEqual(stats.watched_sec, 15.0)
+        self.assertEqual(
+            next(
+                row.duration_sec
+                for row in self.catalog.rows()
+                if row.content_id == content_id_for(self.b)
+            ),
+            46.0,
+        )
 
     def test_later_visit_resumes_saved_offset(self) -> None:
-        self.offsets.set_offset(self.a, 15.0)
+        self.catalog.set_offset(content_id_for(self.a), 15.0)
+        self.offsets.sync([self.a, self.b])
         playback = FakePlayback(self.b, 8.0, self.a)
         _rotate(playback, self.offsets, finished=False)
         self.assertEqual(self.offsets.get_offset(self.b), 8.0)
@@ -63,8 +80,13 @@ class RotateTests(unittest.TestCase):
         self.assertFalse(_let_file_finish(None, 10.0))
 
     def test_finished_file_resets_offset_to_zero(self) -> None:
-        self.offsets.set_offset(self.a, 40.0)
+        self.catalog.set_offset(content_id_for(self.a), 40.0)
+        self.offsets.sync([self.a, self.b])
         playback = FakePlayback(self.a, 46.0, self.b)
         _rotate(playback, self.offsets, finished=True)
         self.assertEqual(self.offsets.get_offset(self.a), 0.0)
         self.assertEqual(playback.go_next_at, 0.0)
+        stats = self.catalog.get_stats(content_id_for(self.a))
+        assert stats is not None
+        self.assertEqual(stats.clip_count, 1)
+        self.assertEqual(stats.watched_sec, 6.0)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Poll the vidsaver catalog and print filename, offset, playback_at."""
+"""Poll the vidsaver catalog and print offsets plus watch stats."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ _CLEAR = "\033[H\033[J"
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Watch catalog offsets (filename, offset, playback_at).",
+        description="Watch catalog offsets and playback stats.",
     )
     parser.add_argument(
         "--config",
@@ -104,29 +104,60 @@ def _render(db_path: Path, names: dict[str, str]) -> str:
         conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
         conn.isolation_level = None
         rows = conn.execute(
-            "SELECT content_id, offset_sec, playback_at FROM videos"
+            """
+            SELECT
+                v.content_id,
+                v.offset_sec,
+                v.playback_at,
+                COALESCE(s.clip_count, 0),
+                COALESCE(s.watched_sec, 0),
+                v.duration_sec
+            FROM videos AS v
+            LEFT JOIN playback_stats AS s ON s.content_id = v.content_id
+            """
         ).fetchall()
         conn.close()
     except sqlite3.Error as exc:
         return f"cannot read {db_path}: {exc}\n"
 
-    table = [("filename", "offset", "playback_at")]
+    table = [("filename", "offset", "playback_at", "clips", "watched", "x")]
     body = [
         (
             names.get(str(content_id), str(content_id)),
             f"{float(offset_sec):.1f}",
             "" if playback_at is None else str(playback_at),
+            str(int(clip_count)),
+            _format_watched(float(watched_sec)),
+            _format_repeats(float(watched_sec), duration_sec),
         )
-        for content_id, offset_sec, playback_at in rows
+        for content_id, offset_sec, playback_at, clip_count, watched_sec, duration_sec in rows
     ]
     body.sort(key=lambda row: row[0].lower())
     table.extend(body)
-    widths = [max(len(row[col]) for row in table) for col in range(3)]
+    widths = [max(len(row[col]) for row in table) for col in range(6)]
+    align = ("<", ">", "<", ">", "<", ">")
     lines = [
-        f"{row[0]:<{widths[0]}}  {row[1]:>{widths[1]}}  {row[2]:<{widths[2]}}"
+        "  ".join(f"{row[col]:{align[col]}{widths[col]}}" for col in range(6))
         for row in table
     ]
     return "\n".join(lines) + "\n"
+
+
+def _format_watched(seconds: float) -> str:
+    total = int(seconds)
+    days, rem = divmod(total, 86400)
+    hours, rem = divmod(rem, 3600)
+    minutes, secs = divmod(rem, 60)
+    return f"{days}d {hours}h {minutes}m {secs}s"
+
+
+def _format_repeats(watched_sec: float, duration_sec: object) -> str:
+    if duration_sec is None:
+        return ""
+    duration = float(duration_sec)
+    if duration <= 0:
+        return ""
+    return f"{watched_sec / duration:.2f}x"
 
 
 if __name__ == "__main__":

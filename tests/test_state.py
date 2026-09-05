@@ -115,6 +115,24 @@ class CatalogTests(unittest.TestCase):
             {old_id, new_id},
         )
 
+    def test_stats_start_at_zero_and_accumulate(self) -> None:
+        path = self.root / "clip.mp4"
+        path.write_bytes(b"stats")
+        content_id = self.catalog._resolve(path)
+        stats = self.catalog.get_stats(content_id)
+        assert stats is not None
+        self.assertEqual(stats.clip_count, 0)
+        self.assertEqual(stats.watched_sec, 0.0)
+        self.assertIsNone(self.catalog.rows()[0].duration_sec)
+        self.catalog.add_stats(content_id, 15.0, clips=1)
+        self.catalog.add_stats(content_id, 10.0, clips=0)
+        self.catalog.set_duration(content_id, 46.0)
+        stats = self.catalog.get_stats(content_id)
+        assert stats is not None
+        self.assertEqual(stats.clip_count, 1)
+        self.assertEqual(stats.watched_sec, 25.0)
+        self.assertEqual(self.catalog.rows()[0].duration_sec, 46.0)
+
 
 class OffsetsTests(unittest.TestCase):
     def test_sync_loads_existing_offset(self) -> None:
@@ -143,6 +161,37 @@ class OffsetsTests(unittest.TestCase):
                 offsets.set_offset(path, 12.5)
                 self.assertEqual(offsets.get_offset(path), 12.5)
                 self.assertEqual(catalog.rows()[0].offset_sec, 12.5)
+
+    def test_set_offset_tallies_a_new_video_once(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            first = root / "a.mp4"
+            second = root / "b.mp4"
+            first.write_bytes(b"aaa")
+            second.write_bytes(b"bbb")
+            with Catalog(root / "vidsaver.sqlite") as catalog:
+                offsets = Offsets(catalog)
+                offsets.sync([first, second])
+                offsets.set_duration(first, 46.0)
+                offsets.set_offset(first, 10.0)
+                offsets.set_offset(first, 25.0)
+                offsets.set_duration(second, 20.0)
+                offsets.set_offset(second, 8.0)
+                a_stats = catalog.get_stats(content_id_for(first))
+                b_stats = catalog.get_stats(content_id_for(second))
+                assert a_stats is not None and b_stats is not None
+                self.assertEqual(a_stats.clip_count, 1)
+                self.assertEqual(a_stats.watched_sec, 25.0)
+                self.assertEqual(
+                    next(
+                        row.duration_sec
+                        for row in catalog.rows()
+                        if row.content_id == content_id_for(first)
+                    ),
+                    46.0,
+                )
+                self.assertEqual(b_stats.clip_count, 1)
+                self.assertEqual(b_stats.watched_sec, 8.0)
 
     def test_unknown_path_does_not_write_db(self) -> None:
         with TemporaryDirectory() as tmp:

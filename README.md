@@ -2,6 +2,8 @@
 
 Play every video in a folder fullscreen, looping the playlist. Order is random without replacement each pass, with a 2-video cooldown before a file can play again. Quit with **Escape** or **q**.
 
+A catalog of videos is kept at `~/.local/state/vidsaver/vidsaver.sqlite` (or `$XDG_STATE_HOME/vidsaver/`). Identity is a sample hash (size plus the first and last 1 MiB). 
+
 ## Run
 
 `./run.sh` installs [mpv](https://mpv.io/) via apt if it is missing, then starts the app. No `pip install` is required.
@@ -18,8 +20,6 @@ Copy `config.example.toml` to `./config.toml` or `~/.config/vidsaver/config.toml
 - **`mute`** — `true` (default: no audio on any window) or `false` (audio on the primary window only). Extra windows are always silent.
 - **`rotate_minutes`** — minutes on the current file before jumping to the next (default 15). If less than a quarter of that interval remains in the file, it plays to the end instead. Each file resumes at its last offset after a pass and after quit; identity is the sample hash, so a rename keeps progress.
 
-A catalog is kept at `~/.local/state/vidsaver/vidsaver.sqlite` (or `$XDG_STATE_HOME/vidsaver/`). Identity is a sample hash (size plus the first and last 1 MiB). 
-
 Overrides:
 
 ```bash
@@ -28,3 +28,6 @@ Overrides:
 ```
 
 `--dir` wins over `video_dir` in the config file.
+
+## Scripts
+`./scripts/watch_catalog.py` polls that database and prints filename, offset, last playback time, clip count, and cumulative watch time — useful while testing or debugging resume. 

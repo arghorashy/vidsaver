@@ -59,7 +59,7 @@ def run_rotation(
                 curr_path = playback.current_path()
                 if curr_path is not None:
                     start = offsets.get_offset(curr_path)
-                    _log_start(curr_path, start)
+                    _log_start(playback, offsets, curr_path, start)
                     last_save = time.monotonic()
             remaining = max(0.0, deadline - time.monotonic())
             time.sleep(min(remaining, _EOF_POLL_SEC))
@@ -96,15 +96,18 @@ def _rotate(
     finished: bool,
 ) -> Path | None:
     path = playback.current_path()
-    offsets.set_offset(path, 0.0 if finished else playback.time_pos())
+    offsets.set_offset(path, playback.time_pos(), finished=finished)
     next_path = playback.peek_next_path()
     start = offsets.get_offset(next_path)
     new_path = playback.go_next(start)
     if new_path is not None:
         start = offsets.get_offset(new_path)
-        _log_start(new_path, start)
+        _log_start(playback, offsets, new_path, start)
     return new_path
 
 
-def _log_start(path: Path, offset: float) -> None:
+def _log_start(
+    playback: Playback, offsets: Offsets, path: Path, offset: float
+) -> None:
+    offsets.set_duration(path, playback.duration())
     print(f"vidsaver: starting {path} at {offset:.1f}s", file=sys.stderr, flush=True)
