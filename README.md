@@ -18,6 +18,8 @@ Copy `config.example.toml` to `./config.toml` or `~/.config/vidsaver/config.toml
 - **`mute`** — `true` (default: no audio on any window) or `false` (audio on the primary window only). Extra windows are always silent.
 - **`rotate_minutes`** — minutes on the current file before jumping to the next (default 15). If less than a quarter of that interval remains in the file, it plays to the end instead. After a full pass **in this run**, each file resumes at its last offset. Progress is not saved when you quit.
 
+A catalog of seen files is kept at `~/.local/state/vidsaver/vidsaver.sqlite` (or `$XDG_STATE_HOME/vidsaver/`). Identity is a sample hash (size plus the first and last 1 MiB). Paths are not stored. Playback does not read this yet.
+
 Overrides:
 
 ```bash
