@@ -72,7 +72,55 @@ class LoadConfigFileTests(unittest.TestCase):
     def test_dir_works_without_any_config_file(self) -> None:
         config = load_config(video_dir=Path("/only-cli"))
         self.assertEqual(config.video_dir, Path("/only-cli"))
+        self.assertEqual(config.screens, "primary")
         self.assertIsNone(config.config_path)
+
+    # screens
+
+    def test_omitted_screens_defaults_to_primary(self) -> None:
+        path = _write_toml(self.root / "explicit.toml", 'video_dir = "/videos/a"\n')
+        config = load_config(config_path=path)
+        self.assertEqual(config.screens, "primary")
+
+    def test_screens_primary_loads(self) -> None:
+        path = _write_toml(
+            self.root / "explicit.toml",
+            'video_dir = "/videos/a"\nscreens = "primary"\n',
+        )
+        config = load_config(config_path=path)
+        self.assertEqual(config.screens, "primary")
+
+    def test_screens_all_loads(self) -> None:
+        path = _write_toml(
+            self.root / "explicit.toml",
+            'video_dir = "/videos/a"\nscreens = "all"\n',
+        )
+        config = load_config(config_path=path)
+        self.assertEqual(config.screens, "all")
+
+    def test_screens_invalid_raises(self) -> None:
+        path = _write_toml(
+            self.root / "explicit.toml",
+            'video_dir = "/videos/a"\nscreens = "current"\n',
+        )
+        with self.assertRaises(ConfigError) as ctx:
+            load_config(config_path=path)
+        self.assertEqual(
+            str(ctx.exception),
+            f'screens in {path} must be "primary" or "all", not {"current"!r}.',
+        )
+
+    def test_screens_empty_string_raises(self) -> None:
+        path = _write_toml(
+            self.root / "explicit.toml",
+            'video_dir = "/videos/a"\nscreens = ""\n',
+        )
+        with self.assertRaises(ConfigError) as ctx:
+            load_config(config_path=path)
+        self.assertEqual(
+            str(ctx.exception),
+            f'screens in {path} must be "primary" or "all", not {""!r}.',
+        )
 
     # Missing video_dir, blank string, or invalid TOML
 

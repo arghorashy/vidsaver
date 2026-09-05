@@ -3,6 +3,10 @@
 
 video_dir = "/path/to/videos"
 
+# primary: one fullscreen window on the first display
+# all: one fullscreen window on each connected display
+screens = "primary"
+
 # Future (unused in the MVP):
 # rotate_minutes = 15
 # idle_minutes = 10

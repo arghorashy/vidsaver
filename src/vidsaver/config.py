@@ -3,8 +3,10 @@ from __future__ import annotations
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 APP_NAME = "vidsaver"
+Screens = Literal["primary", "all"]
 
 # config.toml at the project root (this file is src/vidsaver/config.py)
 PROJECT_CONFIG_PATH = Path(__file__).resolve().parents[2] / "config.toml"
@@ -19,6 +21,7 @@ class ConfigError(Exception):
 @dataclass(frozen=True)
 class Config:
     video_dir: Path
+    screens: Screens = "primary"
     config_path: Path | None = None
 
 
@@ -26,6 +29,7 @@ def load_config(config_path: Path | None = None, video_dir: Path | None = None) 
     """Load config from TOML, then apply CLI overrides.
 
     ``video_dir`` (``--dir``) overrides ``video_dir`` from the file.
+    ``screens`` is ``"primary"`` (default) or ``"all"``.
 
     If ``config_path`` (``--config``) is given, that file is required and no
     other locations are checked. Otherwise the first existing file wins:
@@ -60,7 +64,20 @@ def load_config(config_path: Path | None = None, video_dir: Path | None = None) 
             "Set it to a folder of videos, or pass --dir."
         )
 
-    return Config(video_dir=Path(raw_dir).expanduser(), config_path=used_path)
+    return Config(
+        video_dir=Path(raw_dir).expanduser(),
+        screens=_parse_screens(file_values.get("screens", "primary"), used_path),
+        config_path=used_path,
+    )
+
+
+def _parse_screens(raw: object, config_path: Path | None) -> Screens:
+    if raw == "primary" or raw == "all":
+        return raw
+    where = f" in {config_path}" if config_path is not None else ""
+    raise ConfigError(
+        f'screens{where} must be "primary" or "all", not {raw!r}.'
+    )
 
 
 def _config_candidates() -> tuple[Path, ...]:

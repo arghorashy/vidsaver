@@ -12,6 +12,7 @@ Play every video in a folder fullscreen, looping the playlist. Quit with **Escap
 
 Set `video_dir` in `./config.toml` (copy from `config.example.toml`) or `~/.config/vidsaver/config.toml`. Local config wins.
 
+`screens` is `"primary"` (default: one window on the first display) or `"all"` (one window on each connected display). With `"all"`, audio plays on the primary display only; Escape or **q** in any window stops playback on every screen.
 
 Overrides:
 
