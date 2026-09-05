@@ -1,0 +1,9 @@
+# Copy to ./config.toml (next to this file) or ~/.config/vidsaver/config.toml
+# or pass a path with: vidsaver --config /path/to/config.toml
+
+video_dir = "/path/to/videos"
+
+# Future (unused in the MVP):
+# rotate_minutes = 15
+# idle_minutes = 10
+# exit_on = "escape"   # later: "any-input"

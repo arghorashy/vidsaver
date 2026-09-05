@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+*.whl
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local machine config (video_dir, etc.)
+/config.toml
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
