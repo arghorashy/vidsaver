@@ -8,7 +8,7 @@ from vidsaver.config import ConfigError, load_config
 from vidsaver.player import PlayerError, play
 from vidsaver.playlist import PlaylistError, scan
 from vidsaver.shuffle import get_shuffled_playlist
-from vidsaver.state import StateError, sync_catalog
+from vidsaver.state import Catalog, Offsets, StateError, default_db_path
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -34,14 +34,19 @@ def main(argv: list[str] | None = None) -> int:
     try:
         config = load_config(config_path=args.config, video_dir=args.video_dir)
         paths = scan(config.video_dir)
-        sync_catalog(paths)
-        videos = get_shuffled_playlist(paths)
-        return play(
-            videos,
-            screens=config.screens,
-            mute=config.mute,
-            rotate_minutes=config.rotate_minutes,
-        )
+        with Catalog(default_db_path()) as catalog:
+            offsets = Offsets(catalog)
+            offsets.sync(paths)
+            videos = get_shuffled_playlist(paths)
+            start = offsets.get_offset(videos[0]) if videos else 0.0
+            return play(
+                videos,
+                screens=config.screens,
+                mute=config.mute,
+                rotate_minutes=config.rotate_minutes,
+                start=start,
+                offsets=offsets,
+            )
     except (ConfigError, PlaylistError, PlayerError, StateError) as exc:
         print(exc, file=sys.stderr)
         return 1

@@ -10,6 +10,7 @@ from vidsaver.mpv_ipc import MpvIpc
 from vidsaver.playback import Playback
 from vidsaver.rotation import run_rotation
 from vidsaver.screens import screen_count
+from vidsaver.state import Offsets
 
 MPV_INSTALL_HINT = "mpv is not installed. Install it with: sudo apt install mpv"
 
@@ -29,14 +30,18 @@ def play(
     screens: str = "primary",
     mute: bool = True,
     rotate_minutes: float = 15,
+    start: float = 0,
+    *,
+    offsets: Offsets,
 ) -> int:
     """Play *videos* looping fullscreen in mpv. Returns mpv's exit code.
 
     ``screens="primary"`` uses one window on display 0. ``screens="all"``
     starts one window per connected display; extra windows have no audio.
     ``mute=True`` (the default) uses ``--no-audio`` on every window.
-    After ``rotate_minutes``, jump to the next file; later in this process,
-    that file resumes at its last offset.
+    After ``rotate_minutes``, jump to the next file. Offsets are stored
+    on *offsets*.
+    ``start`` is the first file's resume point (mpv ``--start``).
     """
     mpv = shutil.which("mpv")
     if mpv is None:
@@ -81,10 +86,15 @@ def play(
                 screen=index,
                 mute_audio=mute or index != 0,
                 ipc_server=ipc_server,
+                start=start,
             )
             procs.append(subprocess.Popen(argv))
             clients.append(MpvIpc(ipc_server))
-        return run_rotation(Playback(procs, clients), rotate_minutes)
+        return run_rotation(
+            Playback(procs, clients),
+            rotate_minutes,
+            offsets=offsets,
+        )
     except OSError as exc:
         raise PlayerError(f"Failed to launch mpv: {exc}") from exc
     finally:
@@ -106,6 +116,7 @@ def mpv_argv(
     screen: int,
     mute_audio: bool,
     ipc_server: Path | None = None,
+    start: float = 0,
 ) -> list[str]:
     """Build the mpv command for one display."""
     argv = [
@@ -127,6 +138,8 @@ def mpv_argv(
     ]
     if ipc_server is not None:
         argv.append(f"--input-ipc-server={ipc_server}")
+    if start > 0:
+        argv.append(f"--start={start}")
     if mute_audio:
         # Disable audio entirely. --ao=null still inits a driver, and
         # playlist-next while paused logs "illegal state: start() while paused".

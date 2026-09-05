@@ -1,12 +1,23 @@
 from __future__ import annotations
 
 import unittest
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 
 from vidsaver.player import mpv_argv, play
+from vidsaver.state import Catalog, Offsets
 
 VIDEOS = [Path("/videos/a.mp4")]
+
+
+@contextmanager
+def _offsets() -> Iterator[Offsets]:
+    with TemporaryDirectory() as tmp:
+        with Catalog(Path(tmp) / "vidsaver.sqlite") as catalog:
+            yield Offsets(catalog)
 
 
 class FakeProcess:
@@ -50,7 +61,8 @@ def _play_all(n_displays: int = 2, *, mute: bool = True) -> tuple[int, list[Fake
         patch("vidsaver.player.screen_count", return_value=n_displays),
         patch("vidsaver.player.subprocess.Popen", side_effect=_fake_popen(procs)),
     ):
-        code = play(VIDEOS, screens="all", mute=mute)
+        with _offsets() as offsets:
+            code = play(VIDEOS, screens="all", mute=mute, offsets=offsets)
     return code, procs
 
 
@@ -61,7 +73,8 @@ def _play_primary(*, mute: bool = True) -> tuple[int, list[FakeProcess], MagicMo
         patch("vidsaver.player.screen_count") as count,
         patch("vidsaver.player.subprocess.Popen", side_effect=_fake_popen(procs)),
     ):
-        code = play(VIDEOS, screens="primary", mute=mute)
+        with _offsets() as offsets:
+            code = play(VIDEOS, screens="primary", mute=mute, offsets=offsets)
     return code, procs, count
 
 
@@ -92,6 +105,17 @@ class MpvArgvTests(unittest.TestCase):
                 "/videos/a.mp4",
             ],
         )
+
+    def test_resume_passes_start(self) -> None:
+        argv = mpv_argv(
+            "/usr/bin/mpv",
+            [Path("/videos/a.mp4")],
+            Path("/tmp/input.conf"),
+            screen=0,
+            mute_audio=False,
+            start=12.5,
+        )
+        self.assertIn("--start=12.5", argv)
 
     def test_extra_screen_is_muted(self) -> None:
         argv = mpv_argv(
@@ -142,7 +166,8 @@ class PlayAllScreensTests(unittest.TestCase):
             patch("vidsaver.player.screen_count", return_value=2),
             patch("vidsaver.player.subprocess.Popen", side_effect=fake_popen),
         ):
-            play(VIDEOS, screens="all")
+            with _offsets() as offsets:
+                play(VIDEOS, screens="all", offsets=offsets)
 
         still_playing, _exited_immediately = procs
         self.assertTrue(still_playing.terminated)

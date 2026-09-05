@@ -7,7 +7,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from vidsaver.fingerprint import content_id_for
-from vidsaver.state import Catalog, default_db_path
+from vidsaver.state import Catalog, Offsets, default_db_path
 
 
 class DefaultDbPathTests(unittest.TestCase):
@@ -75,6 +75,34 @@ class CatalogTests(unittest.TestCase):
         )
         self.assertEqual(len(self.catalog.rows()), 2)
 
+    def test_sync_maps_resolved_paths(self) -> None:
+        path = self.root / "clip.mp4"
+        path.write_bytes(b"sync-me")
+        ids = self.catalog.sync([path])
+        self.assertEqual(ids[path.resolve()], content_id_for(path))
+
+    def test_offset_defaults_to_zero_and_round_trips(self) -> None:
+        path = self.root / "clip.mp4"
+        path.write_bytes(b"offset")
+        content_id = self.catalog._resolve(path)
+        self.assertEqual(self.catalog.get_offset(content_id), 0.0)
+        self.assertIsNone(self.catalog.rows()[0].playback_at)
+        self.catalog.set_offset(content_id, 12.5)
+        self.assertEqual(self.catalog.get_offset(content_id), 12.5)
+        row = self.catalog.rows()[0]
+        self.assertEqual(row.offset_sec, 12.5)
+        self.assertIsNotNone(row.playback_at)
+
+    def test_reencode_does_not_copy_offset_to_new_id(self) -> None:
+        path = self.root / "clip.mp4"
+        path.write_bytes(b"original")
+        old_id = self.catalog._resolve(path)
+        self.catalog.set_offset(old_id, 9.0)
+        path.write_bytes(b"re-encoded")
+        new_id = self.catalog._resolve(path)
+        self.assertEqual(self.catalog.get_offset(old_id), 9.0)
+        self.assertEqual(self.catalog.get_offset(new_id), 0.0)
+
     def test_reencode_adds_a_new_id_and_keeps_the_old(self) -> None:
         path = self.root / "clip.mp4"
         path.write_bytes(b"original")
@@ -86,3 +114,44 @@ class CatalogTests(unittest.TestCase):
             {row.content_id for row in self.catalog.rows()},
             {old_id, new_id},
         )
+
+
+class OffsetsTests(unittest.TestCase):
+    def test_sync_loads_existing_offset(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path = root / "clip.mp4"
+            path.write_bytes(b"offset")
+            db = root / "vidsaver.sqlite"
+            with Catalog(db) as catalog:
+                offsets = Offsets(catalog)
+                offsets.sync([path])
+                offsets.set_offset(path, 12.5)
+            with Catalog(db) as catalog:
+                offsets = Offsets(catalog)
+                offsets.sync([path])
+                self.assertEqual(offsets.get_offset(path), 12.5)
+
+    def test_with_catalog_writes_db(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path = root / "clip.mp4"
+            path.write_bytes(b"offset")
+            with Catalog(root / "vidsaver.sqlite") as catalog:
+                offsets = Offsets(catalog)
+                offsets.sync([path])
+                offsets.set_offset(path, 12.5)
+                self.assertEqual(offsets.get_offset(path), 12.5)
+                self.assertEqual(catalog.rows()[0].offset_sec, 12.5)
+
+    def test_unknown_path_does_not_write_db(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path = root / "clip.mp4"
+            path.write_bytes(b"offset")
+            with Catalog(root / "vidsaver.sqlite") as catalog:
+                offsets = Offsets(catalog)
+                offsets.sync([path])
+                offsets.set_offset(root / "missing.mp4", 9.0)
+                self.assertEqual(catalog.rows()[0].offset_sec, 0.0)
+                self.assertEqual(offsets.get_offset(root / "missing.mp4"), 0.0)
