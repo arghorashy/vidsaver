@@ -1,6 +1,6 @@
 # vidsaver
 
-Play every video in a folder fullscreen, looping the playlist. Quit with **Escape** or **q**.
+Play every video in a folder fullscreen, looping the playlist. Order is random without replacement each pass, with a 2-video cooldown before a file can play again. Quit with **Escape** or **q**.
 
 ## Run
 

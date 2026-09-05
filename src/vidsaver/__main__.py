@@ -7,6 +7,7 @@ from pathlib import Path
 from vidsaver.config import ConfigError, load_config
 from vidsaver.player import PlayerError, play
 from vidsaver.playlist import PlaylistError, scan
+from vidsaver.shuffle import get_shuffled_playlist
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -31,7 +32,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         config = load_config(config_path=args.config, video_dir=args.video_dir)
-        videos = scan(config.video_dir)
+        videos = get_shuffled_playlist(scan(config.video_dir))
         return play(videos, screens=config.screens, mute=config.mute)
     except (ConfigError, PlaylistError, PlayerError) as exc:
         print(exc, file=sys.stderr)
