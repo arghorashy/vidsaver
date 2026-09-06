@@ -7,6 +7,7 @@ import argparse
 import sqlite3
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -124,8 +125,8 @@ def _render(db_path: Path, names: dict[str, str]) -> str:
     body = [
         (
             names.get(str(content_id), str(content_id)),
-            f"{float(offset_sec):.1f}",
-            "" if playback_at is None else str(playback_at),
+            _format_offset(float(offset_sec)),
+            _format_playback_at(playback_at),
             str(int(clip_count)),
             _format_watched(float(watched_sec)),
             _format_repeats(float(watched_sec), duration_sec),
@@ -141,6 +142,26 @@ def _render(db_path: Path, names: dict[str, str]) -> str:
         for row in table
     ]
     return "\n".join(lines) + "\n"
+
+
+def _format_offset(seconds: float) -> str:
+    total = max(0, int(seconds))
+    hours, rem = divmod(total, 3600)
+    minutes, secs = divmod(rem, 60)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+
+
+def _format_playback_at(raw: object) -> str:
+    if raw is None:
+        return ""
+    text = str(raw)
+    try:
+        moment = datetime.fromisoformat(text)
+    except ValueError:
+        return text
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment.astimezone().strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _format_watched(seconds: float) -> str:
