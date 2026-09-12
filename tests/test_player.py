@@ -8,16 +8,16 @@ from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 
 from vidsaver.player import mpv_argv, play
-from vidsaver.state import Catalog, Offsets
+from vidsaver.state import DBStore, Progress
 
 VIDEOS = [Path("/videos/a.mp4")]
 
 
 @contextmanager
-def _offsets() -> Iterator[Offsets]:
+def _progress() -> Iterator[Progress]:
     with TemporaryDirectory() as tmp:
-        with Catalog(Path(tmp) / "vidsaver.sqlite") as catalog:
-            yield Offsets(catalog)
+        with DBStore(Path(tmp) / "vidsaver.sqlite") as db:
+            yield Progress(db)
 
 
 class FakeProcess:
@@ -61,8 +61,8 @@ def _play_all(n_displays: int = 2, *, mute: bool = True) -> tuple[int, list[Fake
         patch("vidsaver.player.screen_count", return_value=n_displays),
         patch("vidsaver.player.subprocess.Popen", side_effect=_fake_popen(procs)),
     ):
-        with _offsets() as offsets:
-            code = play(VIDEOS, screens="all", mute=mute, offsets=offsets)
+        with _progress() as progress:
+            code = play(VIDEOS, screens="all", mute=mute, progress=progress)
     return code, procs
 
 
@@ -73,8 +73,8 @@ def _play_primary(*, mute: bool = True) -> tuple[int, list[FakeProcess], MagicMo
         patch("vidsaver.player.screen_count") as count,
         patch("vidsaver.player.subprocess.Popen", side_effect=_fake_popen(procs)),
     ):
-        with _offsets() as offsets:
-            code = play(VIDEOS, screens="primary", mute=mute, offsets=offsets)
+        with _progress() as progress:
+            code = play(VIDEOS, screens="primary", mute=mute, progress=progress)
     return code, procs, count
 
 
@@ -166,8 +166,8 @@ class PlayAllScreensTests(unittest.TestCase):
             patch("vidsaver.player.screen_count", return_value=2),
             patch("vidsaver.player.subprocess.Popen", side_effect=fake_popen),
         ):
-            with _offsets() as offsets:
-                play(VIDEOS, screens="all", offsets=offsets)
+            with _progress() as progress:
+                play(VIDEOS, screens="all", progress=progress)
 
         still_playing, _exited_immediately = procs
         self.assertTrue(still_playing.terminated)

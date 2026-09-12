@@ -10,7 +10,7 @@ from vidsaver.mpv_ipc import MpvIpc
 from vidsaver.playback import Playback
 from vidsaver.rotation import run_rotation
 from vidsaver.screens import screen_count
-from vidsaver.state import Offsets
+from vidsaver.state import Progress
 
 MPV_INSTALL_HINT = "mpv is not installed. Install it with: sudo apt install mpv"
 
@@ -32,15 +32,15 @@ def play(
     rotate_minutes: float = 15,
     start: float = 0,
     *,
-    offsets: Offsets,
+    progress: Progress,
 ) -> int:
     """Play *videos* looping fullscreen in mpv. Returns mpv's exit code.
 
     ``screens="primary"`` uses one window on display 0. ``screens="all"``
     starts one window per connected display; extra windows have no audio.
     ``mute=True`` (the default) uses ``--no-audio`` on every window.
-    After ``rotate_minutes``, jump to the next file. Offsets are stored
-    on *offsets*.
+    After ``rotate_minutes``, jump to the next file. Resume points are stored
+    on *progress*.
     ``start`` is the first file's resume point (mpv ``--start``).
     """
     mpv = shutil.which("mpv")
@@ -93,7 +93,7 @@ def play(
         return run_rotation(
             Playback(procs, clients),
             rotate_minutes,
-            offsets=offsets,
+            progress=progress,
         )
     except OSError as exc:
         raise PlayerError(f"Failed to launch mpv: {exc}") from exc

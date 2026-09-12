@@ -2,7 +2,7 @@
 
 Play every video in a folder fullscreen, looping the playlist. Order is random without replacement each pass, with a 2-video cooldown before a file can play again. Quit with **Escape** or **q**.
 
-A catalog of videos is kept at `~/.local/state/vidsaver/vidsaver.sqlite` (or `$XDG_STATE_HOME/vidsaver/`). Identity is a sample hash (size plus the first and last 1 MiB). 
+A sqlite database of videos is kept at `~/.local/state/vidsaver/vidsaver.sqlite` (or `$XDG_STATE_HOME/vidsaver/`). Identity is a sample hash (size plus the first and last 1 MiB). 
 
 ## Run
 

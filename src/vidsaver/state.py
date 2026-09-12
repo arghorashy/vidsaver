@@ -1,4 +1,4 @@
-"""SQLite catalog of videos we have seen, plus playback offsets.
+"""SQLite store of videos we have seen, plus playback progress.
 
 Identity is sample-hash ``content_id``. Paths are not stored; each launch
 re-hashes whatever ``scan`` found and maps those paths in memory.
@@ -17,7 +17,7 @@ from vidsaver.fingerprint import FingerprintError, content_id_for
 
 
 class StateError(Exception):
-    """The catalog could not be opened or updated."""
+    """The database could not be opened or updated."""
 
 
 @dataclass(frozen=True)
@@ -44,8 +44,8 @@ def default_db_path() -> Path:
     return root / APP_NAME / "vidsaver.sqlite"
 
 
-class Catalog:
-    """Open or create the catalog. ``sync`` is the public scan entry."""
+class DBStore:
+    """Open or create the sqlite file."""
 
     def __init__(self, db_path: Path) -> None:
         db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -74,12 +74,12 @@ class Catalog:
             )
             self._conn.commit()
         except sqlite3.Error as exc:
-            raise StateError(f"Cannot open catalog {db_path}: {exc}") from exc
+            raise StateError(f"Cannot open database {db_path}: {exc}") from exc
 
     def close(self) -> None:
         self._conn.close()
 
-    def __enter__(self) -> Catalog:
+    def __enter__(self) -> DBStore:
         return self
 
     def __exit__(self, *exc: object) -> None:
@@ -122,7 +122,7 @@ class Catalog:
             )
             self._conn.commit()
         except sqlite3.Error as exc:
-            raise StateError(f"Cannot update catalog for {path}: {exc}") from exc
+            raise StateError(f"Cannot update database for {path}: {exc}") from exc
         return content_id
 
     def get_offset(self, content_id: str) -> float:
@@ -238,19 +238,19 @@ class Catalog:
         ]
 
 
-class Offsets:
-    """Path → offset for this scan. Reads and writes the catalog."""
+class Progress:
+    """Path-keyed resume/watch progress for this scan. Reads and writes the DB."""
 
-    def __init__(self, catalog: Catalog) -> None:
-        self._catalog = catalog
+    def __init__(self, db: DBStore) -> None:
+        self._db = db
         self._path_ids: dict[Path, str] = {}
         self._memory: dict[str, float] = {}
         self._last_id: str | None = None
 
     def sync(self, paths: list[Path]) -> None:
         """Build the path → id map and load each offset into memory."""
-        self._path_ids = self._catalog.sync(paths)
-        self._memory = self._catalog.get_offsets()
+        self._path_ids = self._db.sync(paths)
+        self._memory = self._db.get_offsets()
         self._last_id = None
 
     def get_offset(self, path: Path | None) -> float:
@@ -270,14 +270,14 @@ class Offsets:
         if content_id is None:
             return
         previous = self._memory[content_id]
-        self._catalog.add_stats(
+        self._db.add_stats(
             content_id,
             offset_sec - previous,
             clips=1 if content_id != self._last_id else 0,
         )
         stored = 0.0 if finished else offset_sec
         self._memory[content_id] = stored
-        self._catalog.set_offset(content_id, stored)
+        self._db.set_offset(content_id, stored)
         self._last_id = content_id
 
     def set_duration(self, path: Path | None, duration_sec: float | None) -> None:
@@ -286,7 +286,7 @@ class Offsets:
         content_id = self._id_for(path)
         if content_id is None:
             return
-        self._catalog.set_duration(content_id, duration_sec)
+        self._db.set_duration(content_id, duration_sec)
 
     def _id_for(self, path: Path | None) -> str | None:
         if path is None:

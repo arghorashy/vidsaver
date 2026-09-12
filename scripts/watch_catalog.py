@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Poll the vidsaver catalog and print offsets plus watch stats."""
+"""Poll the vidsaver database and print resume points plus watch stats."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ _CLEAR = "\033[H\033[J"
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Watch catalog offsets and playback stats.",
+        description="Watch database resume points and playback stats.",
     )
     parser.add_argument(
         "--config",
@@ -43,7 +43,7 @@ def main(argv: list[str] | None = None) -> int:
         "--db",
         type=Path,
         default=None,
-        help="Catalog sqlite path (default: XDG state location)",
+        help="Sqlite path (default: XDG state location)",
     )
     parser.add_argument(
         "--interval",
@@ -100,7 +100,7 @@ def _refresh_names(
 
 def _render(db_path: Path, names: dict[str, str]) -> str:
     if not db_path.is_file():
-        return f"waiting for catalog at {db_path}\n"
+        return f"waiting for database at {db_path}\n"
     try:
         conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
         conn.isolation_level = None

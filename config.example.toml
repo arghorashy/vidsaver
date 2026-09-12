@@ -13,7 +13,7 @@ mute = true
 
 # Minutes on the current file before jumping to the next (default 15).
 # If less than a quarter of that remains in the file, play to the end.
-# Offsets persist across quit; a rename keeps the same progress.
+# Resume points persist across quit; a rename keeps the same progress.
 rotate_minutes = 15
 
 # Future (unused):
