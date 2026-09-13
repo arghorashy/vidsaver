@@ -23,6 +23,7 @@ class Config:
     video_dir: Path
     screens: Screens = "primary"
     mute: bool = True
+    skip_ends: bool = True
     rotate_minutes: float = 15
     config_path: Path | None = None
 
@@ -33,6 +34,7 @@ def load_config(config_path: Path | None = None, video_dir: Path | None = None) 
     ``video_dir`` (``--dir``) overrides ``video_dir`` from the file.
     ``screens`` is ``"primary"`` (default) or ``"all"``.
     ``mute`` is ``true`` (default) or ``false``.
+    ``skip_ends`` is ``true`` (default) or ``false``.
     ``rotate_minutes`` is minutes per file before advancing (default 15).
 
     If ``config_path`` (``--config``) is given, that file is required and no
@@ -71,7 +73,10 @@ def load_config(config_path: Path | None = None, video_dir: Path | None = None) 
     return Config(
         video_dir=Path(raw_dir).expanduser(),
         screens=_parse_screens(file_values.get("screens", "primary"), used_path),
-        mute=_parse_mute(file_values.get("mute", True), used_path),
+        mute=_parse_bool("mute", file_values.get("mute", True), used_path),
+        skip_ends=_parse_bool(
+            "skip_ends", file_values.get("skip_ends", True), used_path
+        ),
         rotate_minutes=_parse_rotate_minutes(
             file_values.get("rotate_minutes", 15), used_path
         ),
@@ -88,12 +93,12 @@ def _parse_screens(raw: object, config_path: Path | None) -> Screens:
     )
 
 
-def _parse_mute(raw: object, config_path: Path | None) -> bool:
+def _parse_bool(field: str, raw: object, config_path: Path | None) -> bool:
     if raw is True or raw is False:
         return raw
     where = f" in {config_path}" if config_path is not None else ""
     raise ConfigError(
-        f"mute{where} must be true or false, not {raw!r}."
+        f"{field}{where} must be true or false, not {raw!r}."
     )
 
 

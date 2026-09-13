@@ -22,12 +22,55 @@ _EOF_POLL_SEC = 0.2
 _FINISH_SLACK_FRAC = 0.25
 # Persist the current offset this often after playback starts.
 _SAVE_EVERY_SEC = 60
+# skip_ends: drop this many seconds from each end of a long enough file.
+SKIP_ENDS_SEC = 30.0
+
+
+def playable_start(
+    offset: float, duration: float | None, skip_ends: bool
+) -> float:
+    """Resume time that stays inside the playable window."""
+    begin, end = _playable_window(duration, skip_ends)
+    pos = max(offset, begin)
+    if end is not None and pos >= end:
+        return begin
+    return pos
+
+
+def playable_remaining(
+    time_pos: float, duration: float | None, skip_ends: bool
+) -> float | None:
+    """Seconds left in the playable window, or None if duration is unknown."""
+    _begin, end = _playable_window(duration, skip_ends)
+    if end is None:
+        return None
+    return max(0.0, end - time_pos)
+
+
+def _playable_window(
+    duration: float | None, skip_ends: bool
+) -> tuple[float, float | None]:
+    """Inclusive start and exclusive end.
+
+    Unknown duration keeps the full file: start at 0, end unbound. A clip
+    shorter than ``SKIP_ENDS_SEC`` must not be seeked into empty space.
+    A non-positive duration is treated as unknown (mpv often reports 0
+    before metadata is ready).
+    """
+    if duration is not None and duration <= 0:
+        duration = None
+    if not skip_ends or duration is None:
+        return 0.0, duration
+    if duration <= 2 * SKIP_ENDS_SEC:
+        return 0.0, duration
+    return SKIP_ENDS_SEC, duration - SKIP_ENDS_SEC
 
 
 def run_rotation(
     playback: Playback,
     rotate_minutes: float,
     progress: Progress,
+    skip_ends: bool = True,
 ) -> int:
     """Drive rotation until any mpv process exits. Returns that exit code."""
     rotate_seconds = rotate_minutes * 60
@@ -58,21 +101,30 @@ def run_rotation(
             if curr_path is None:
                 curr_path = playback.current_path()
                 if curr_path is not None:
-                    start = progress.get_offset(curr_path)
-                    _log_start(playback, progress, curr_path, start)
+                    _log_start(
+                        playback, progress, curr_path, playback.time_pos()
+                    )
                     last_save = time.monotonic()
+            if curr_path is not None:
+                progress.set_duration(curr_path, playback.duration())
             remaining = max(0.0, deadline - time.monotonic())
             time.sleep(min(remaining, _EOF_POLL_SEC))
-            if playback.eof_reached():
-                curr_path = _rotate(playback, progress, finished=True)
+            leftover = playable_remaining(
+                playback.time_pos(), playback.duration(), skip_ends
+            )
+            if playback.eof_reached() or (skip_ends and leftover == 0):
+                curr_path = _rotate(
+                    playback, progress, finished=True, skip_ends=skip_ends
+                )
                 deadline = time.monotonic() + rotate_seconds
                 last_save = time.monotonic()
             elif time.monotonic() >= deadline:
-                leftover = playback.time_remaining()
                 if _let_file_finish(leftover, rotate_seconds):
                     time.sleep(_EOF_POLL_SEC)
                     continue
-                curr_path = _rotate(playback, progress, finished=False)
+                curr_path = _rotate(
+                    playback, progress, finished=False, skip_ends=skip_ends
+                )
                 deadline = time.monotonic() + rotate_seconds
                 last_save = time.monotonic()
             elif time.monotonic() - last_save >= _SAVE_EVERY_SEC:
@@ -94,14 +146,18 @@ def _rotate(
     progress: Progress,
     *,
     finished: bool,
+    skip_ends: bool = True,
 ) -> Path | None:
     path = playback.current_path()
     progress.set_offset(path, playback.time_pos(), finished=finished)
     next_path = playback.peek_next_path()
-    start = progress.get_offset(next_path)
+    start = playable_start(
+        progress.get_offset(next_path),
+        progress.get_duration(next_path),
+        skip_ends,
+    )
     new_path = playback.go_next(start)
     if new_path is not None:
-        start = progress.get_offset(new_path)
         _log_start(playback, progress, new_path, start)
     return new_path
 

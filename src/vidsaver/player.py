@@ -8,7 +8,7 @@ from pathlib import Path
 
 from vidsaver.mpv_ipc import MpvIpc
 from vidsaver.playback import Playback
-from vidsaver.rotation import run_rotation
+from vidsaver.rotation import playable_start, run_rotation
 from vidsaver.screens import screen_count
 from vidsaver.state import Progress
 
@@ -31,6 +31,7 @@ def play(
     mute: bool = True,
     rotate_minutes: float = 15,
     start: float = 0,
+    skip_ends: bool = True,
     *,
     progress: Progress,
 ) -> int:
@@ -42,10 +43,17 @@ def play(
     After ``rotate_minutes``, jump to the next file. Resume points are stored
     on *progress*.
     ``start`` is the first file's resume point (mpv ``--start``).
+    ``skip_ends=True`` (the default) skips the first and last 30 seconds
+    of files longer than 60 seconds.
     """
     mpv = shutil.which("mpv")
     if mpv is None:
         raise PlayerError(MPV_INSTALL_HINT)
+
+    if videos:
+        start = playable_start(
+            start, progress.get_duration(videos[0]), skip_ends
+        )
 
     # mpv reads key bindings from a file path. Write a temp copy so we do not
     # depend on package data, and keep the file until every mpv process exits
@@ -94,6 +102,7 @@ def play(
             Playback(procs, clients),
             rotate_minutes,
             progress=progress,
+            skip_ends=skip_ends,
         )
     except OSError as exc:
         raise PlayerError(f"Failed to launch mpv: {exc}") from exc

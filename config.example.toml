@@ -11,6 +11,10 @@ screens = "primary"
 # false: audio on the primary display only
 mute = true
 
+# true (default): skip the first and last 30 seconds of each file
+# (intros / outros). Files 60 seconds or shorter play in full.
+skip_ends = true
+
 # Minutes on the current file before jumping to the next (default 15).
 # If less than a quarter of that remains in the file, play to the end.
 # Resume points persist across quit; a rename keeps the same progress.

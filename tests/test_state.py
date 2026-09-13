@@ -204,3 +204,54 @@ class ProgressTests(unittest.TestCase):
                 progress.set_offset(root / "missing.mp4", 9.0)
                 self.assertEqual(store.rows()[0].offset_sec, 0.0)
                 self.assertEqual(progress.get_offset(root / "missing.mp4"), 0.0)
+
+    def test_sync_loads_existing_duration(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path = root / "clip.mp4"
+            path.write_bytes(b"duration")
+            db = root / "vidsaver.sqlite"
+            with DBStore(db) as store:
+                progress = Progress(store)
+                progress.sync([path])
+                progress.set_duration(path, 120.0)
+            with DBStore(db) as store:
+                progress = Progress(store)
+                progress.sync([path])
+                self.assertEqual(progress.get_duration(path), 120.0)
+
+    def test_writes_duration_through_to_db(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path = root / "clip.mp4"
+            path.write_bytes(b"duration")
+            with DBStore(root / "vidsaver.sqlite") as store:
+                progress = Progress(store)
+                progress.sync([path])
+                progress.set_duration(path, 120.0)
+                self.assertEqual(progress.get_duration(path), 120.0)
+                self.assertEqual(store.rows()[0].duration_sec, 120.0)
+
+    def test_unknown_path_does_not_write_duration(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path = root / "clip.mp4"
+            path.write_bytes(b"duration")
+            with DBStore(root / "vidsaver.sqlite") as store:
+                progress = Progress(store)
+                progress.sync([path])
+                progress.set_duration(root / "missing.mp4", 9.0)
+                self.assertIsNone(store.rows()[0].duration_sec)
+                self.assertIsNone(progress.get_duration(root / "missing.mp4"))
+
+    def test_zero_duration_does_not_write_db(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            path = root / "clip.mp4"
+            path.write_bytes(b"duration")
+            with DBStore(root / "vidsaver.sqlite") as store:
+                progress = Progress(store)
+                progress.sync([path])
+                progress.set_duration(path, 0.0)
+                self.assertIsNone(progress.get_duration(path))
+                self.assertIsNone(store.rows()[0].duration_sec)

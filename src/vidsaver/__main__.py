@@ -45,6 +45,7 @@ def main(argv: list[str] | None = None) -> int:
                 mute=config.mute,
                 rotate_minutes=config.rotate_minutes,
                 start=start,
+                skip_ends=config.skip_ends,
                 progress=progress,
             )
     except (ConfigError, PlaylistError, PlayerError, StateError) as exc:

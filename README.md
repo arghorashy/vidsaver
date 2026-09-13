@@ -18,7 +18,8 @@ Copy `config.example.toml` to `./config.toml` or `~/.config/vidsaver/config.toml
 - **`video_dir`** — folder of videos (required). Scanned non-recursively for `mp4`, `mkv`, `webm`, `avi`, `mov`, `m4v`, `wmv`, `3gp`, and `3gpp`.
 - **`screens`** — `"primary"` (default: one window on the first display) or `"all"` (one window on each connected display). With `"all"`, Escape or **q** in any window stops playback on every screen.
 - **`mute`** — `true` (default: no audio on any window) or `false` (audio on the primary window only). Extra windows are always silent.
-- **`rotate_minutes`** — minutes on the current file before jumping to the next (default 15). If less than a quarter of that interval remains in the file, it plays to the end instead. Each file resumes at its last offset after a pass and after quit; identity is the sample hash, so a rename keeps progress.
+- **`skip_ends`** — `true` (default: skip the first and last 30 seconds of each file) or `false` (play from the true start to EOF). Files 60 seconds or shorter always play in full.
+- **`rotate_minutes`** — minutes on the current file before jumping to the next (default 15). If less than a quarter of that interval remains in the file, it plays to the end instead (the trimmed end, when `skip_ends` is on). Each file resumes at its last offset after a pass and after quit; identity is the sample hash, so a rename keeps progress.
 
 Overrides:
 

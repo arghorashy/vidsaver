@@ -142,6 +142,13 @@ class DBStore:
             for content_id, offset_sec in cur.fetchall()
         }
 
+    def get_durations(self) -> dict[str, float | None]:
+        cur = self._conn.execute("SELECT content_id, duration_sec FROM videos")
+        return {
+            str(content_id): None if duration_sec is None else float(duration_sec)
+            for content_id, duration_sec in cur.fetchall()
+        }
+
     def add_stats(
         self,
         content_id: str,
@@ -244,20 +251,22 @@ class Progress:
     def __init__(self, db: DBStore) -> None:
         self._db = db
         self._path_ids: dict[Path, str] = {}
-        self._memory: dict[str, float] = {}
+        self._offsets: dict[str, float] = {}
+        self._durations: dict[str, float | None] = {}
         self._last_id: str | None = None
 
     def sync(self, paths: list[Path]) -> None:
-        """Build the path → id map and load each offset into memory."""
+        """Build the path → id map and load offsets and durations into memory."""
         self._path_ids = self._db.sync(paths)
-        self._memory = self._db.get_offsets()
+        self._offsets = self._db.get_offsets()
+        self._durations = self._db.get_durations()
         self._last_id = None
 
     def get_offset(self, path: Path | None) -> float:
         content_id = self._id_for(path)
         if content_id is None:
             return 0.0
-        return self._memory[content_id]
+        return self._offsets[content_id]
 
     def set_offset(
         self,
@@ -269,23 +278,32 @@ class Progress:
         content_id = self._id_for(path)
         if content_id is None:
             return
-        previous = self._memory[content_id]
+        previous = self._offsets[content_id]
         self._db.add_stats(
             content_id,
             offset_sec - previous,
             clips=1 if content_id != self._last_id else 0,
         )
         stored = 0.0 if finished else offset_sec
-        self._memory[content_id] = stored
+        self._offsets[content_id] = stored
         self._db.set_offset(content_id, stored)
         self._last_id = content_id
 
+    def get_duration(self, path: Path | None) -> float | None:
+        content_id = self._id_for(path)
+        if content_id is None:
+            return None
+        return self._durations.get(content_id)
+
     def set_duration(self, path: Path | None, duration_sec: float | None) -> None:
-        if duration_sec is None:
+        if duration_sec is None or duration_sec <= 0:
             return
         content_id = self._id_for(path)
         if content_id is None:
             return
+        if self._durations.get(content_id) is not None:
+            return
+        self._durations[content_id] = duration_sec
         self._db.set_duration(content_id, duration_sec)
 
     def _id_for(self, path: Path | None) -> str | None:

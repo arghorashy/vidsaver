@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 
 from vidsaver.player import mpv_argv, play
+from vidsaver.rotation import SKIP_ENDS_SEC
 from vidsaver.state import DBStore, Progress
 
 VIDEOS = [Path("/videos/a.mp4")]
@@ -54,7 +55,9 @@ def _fake_popen(procs: list[FakeProcess]) -> object:
     return fake_popen
 
 
-def _play_all(n_displays: int = 2, *, mute: bool = True) -> tuple[int, list[FakeProcess]]:
+def _play_all(
+    n_displays: int = 2, *, mute: bool = True, skip_ends: bool = False
+) -> tuple[int, list[FakeProcess]]:
     procs: list[FakeProcess] = []
     with (
         patch("vidsaver.player.shutil.which", return_value="/usr/bin/mpv"),
@@ -62,11 +65,19 @@ def _play_all(n_displays: int = 2, *, mute: bool = True) -> tuple[int, list[Fake
         patch("vidsaver.player.subprocess.Popen", side_effect=_fake_popen(procs)),
     ):
         with _progress() as progress:
-            code = play(VIDEOS, screens="all", mute=mute, progress=progress)
+            code = play(
+                VIDEOS,
+                screens="all",
+                mute=mute,
+                skip_ends=skip_ends,
+                progress=progress,
+            )
     return code, procs
 
 
-def _play_primary(*, mute: bool = True) -> tuple[int, list[FakeProcess], MagicMock]:
+def _play_primary(
+    *, mute: bool = True, skip_ends: bool = False
+) -> tuple[int, list[FakeProcess], MagicMock]:
     procs: list[FakeProcess] = []
     with (
         patch("vidsaver.player.shutil.which", return_value="/usr/bin/mpv"),
@@ -74,7 +85,13 @@ def _play_primary(*, mute: bool = True) -> tuple[int, list[FakeProcess], MagicMo
         patch("vidsaver.player.subprocess.Popen", side_effect=_fake_popen(procs)),
     ):
         with _progress() as progress:
-            code = play(VIDEOS, screens="primary", mute=mute, progress=progress)
+            code = play(
+                VIDEOS,
+                screens="primary",
+                mute=mute,
+                skip_ends=skip_ends,
+                progress=progress,
+            )
     return code, procs, count
 
 
@@ -217,3 +234,40 @@ class PlayPrimaryTests(unittest.TestCase):
     def test_mutes_when_mute_is_true(self) -> None:
         _, procs, _ = _play_primary(mute=True)
         self.assertIn("--no-audio", procs[0].argv)
+
+    def test_skip_ends_unknown_duration_does_not_add_start(self) -> None:
+        _, procs, _ = _play_primary(skip_ends=True)
+        self.assertFalse(
+            any(flag.startswith("--start=") for flag in procs[0].argv)
+        )
+
+    def test_skip_ends_starts_past_intro_when_duration_is_known(self) -> None:
+        procs: list[FakeProcess] = []
+        with TemporaryDirectory() as tmp:
+            video = Path(tmp) / "a.mp4"
+            video.write_bytes(b"clip")
+            with (
+                DBStore(Path(tmp) / "vidsaver.sqlite") as db,
+                patch("vidsaver.player.shutil.which", return_value="/usr/bin/mpv"),
+                patch("vidsaver.player.screen_count"),
+                patch(
+                    "vidsaver.player.subprocess.Popen",
+                    side_effect=_fake_popen(procs),
+                ),
+            ):
+                progress = Progress(db)
+                progress.sync([video])
+                progress.set_duration(video, 120.0)
+                play(
+                    [video],
+                    screens="primary",
+                    skip_ends=True,
+                    progress=progress,
+                )
+        self.assertIn(f"--start={SKIP_ENDS_SEC}", procs[0].argv)
+
+    def test_skip_ends_off_does_not_add_start(self) -> None:
+        _, procs, _ = _play_primary(skip_ends=False)
+        self.assertFalse(
+            any(flag.startswith("--start=") for flag in procs[0].argv)
+        )

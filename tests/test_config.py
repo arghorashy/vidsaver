@@ -74,6 +74,7 @@ class LoadConfigFileTests(unittest.TestCase):
         self.assertEqual(config.video_dir, Path("/only-cli"))
         self.assertEqual(config.screens, "primary")
         self.assertIs(config.mute, True)
+        self.assertIs(config.skip_ends, True)
         self.assertEqual(config.rotate_minutes, 15)
         self.assertIsNone(config.config_path)
 
@@ -157,6 +158,41 @@ class LoadConfigFileTests(unittest.TestCase):
         self.assertEqual(
             str(ctx.exception),
             f"mute in {path} must be true or false, not {'yes'!r}.",
+        )
+
+    # skip_ends
+
+    def test_omitted_skip_ends_defaults_to_true(self) -> None:
+        path = _write_toml(self.root / "explicit.toml", 'video_dir = "/videos/a"\n')
+        config = load_config(config_path=path)
+        self.assertIs(config.skip_ends, True)
+
+    def test_skip_ends_true_loads(self) -> None:
+        path = _write_toml(
+            self.root / "explicit.toml",
+            'video_dir = "/videos/a"\nskip_ends = true\n',
+        )
+        config = load_config(config_path=path)
+        self.assertIs(config.skip_ends, True)
+
+    def test_skip_ends_false_loads(self) -> None:
+        path = _write_toml(
+            self.root / "explicit.toml",
+            'video_dir = "/videos/a"\nskip_ends = false\n',
+        )
+        config = load_config(config_path=path)
+        self.assertIs(config.skip_ends, False)
+
+    def test_skip_ends_invalid_raises(self) -> None:
+        path = _write_toml(
+            self.root / "explicit.toml",
+            'video_dir = "/videos/a"\nskip_ends = "yes"\n',
+        )
+        with self.assertRaises(ConfigError) as ctx:
+            load_config(config_path=path)
+        self.assertEqual(
+            str(ctx.exception),
+            f"skip_ends in {path} must be true or false, not {'yes'!r}.",
         )
 
     # rotate_minutes
