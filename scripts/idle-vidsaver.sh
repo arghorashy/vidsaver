@@ -20,6 +20,10 @@ if ! [[ "$idle_seconds" =~ ^[1-9][0-9]*$ ]]; then
   exit 1
 fi
 
+# Login autostart PATH often omits ~/.cargo/bin, where cargo install
+# puts xidlehook when apt does not have a package.
+export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
+
 if ! command -v xidlehook >/dev/null 2>&1; then
   echo "xidlehook is not installed. Run ./scripts/install-screensaver.sh" >&2
   exit 1

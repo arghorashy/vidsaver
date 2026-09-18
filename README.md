@@ -42,7 +42,7 @@ X11 only (`DISPLAY` set, not Wayland). Wayland idle hooks are compositor-specifi
 ./scripts/uninstall-screensaver.sh
 ```
 
-Install checks for X11, Python 3.11+, mpv, and xidlehook (and apt-installs mpv/xidlehook when it can), then writes `~/.config/autostart/vidsaver-idle.desktop` and starts the idle wrapper. It asks for the idle timeout in minutes (default 10) and stores that in the autostart file. Re-run install to change it. Non-interactive installs use `VIDSAVER_IDLE_SECONDS` (default 600).
+Install checks for X11, Python 3.11+, mpv, and xidlehook (and apt-installs mpv when it can). xidlehook is not in Ubuntu/Mint apt; the installer builds it with [cargo](https://rustup.rs) (`cargo install xidlehook --bins --locked`) after installing the X11/Pulse build headers (`libxcb1-dev`, `libxcb-screensaver0-dev`, `libxss-dev`, `libpulse-dev`). Then it writes `~/.config/autostart/vidsaver-idle.desktop` and starts the idle wrapper. It asks for the idle timeout in minutes (default 10) and stores that in the autostart file. Re-run install to change it. Non-interactive installs use `VIDSAVER_IDLE_SECONDS` (default 600).
 
 If Cinnamon, GNOME, XFCE, or similar already blanks or locks on idle, turn that **off** in system settings or you will get two screensavers. The installer does not change those settings. After uninstall, turn the desktop lock back on if you disabled it.
 

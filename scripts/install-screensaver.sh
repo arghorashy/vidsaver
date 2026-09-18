@@ -32,6 +32,61 @@ _install_apt() {
   sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "$pkg"
 }
 
+# cargo install puts the binary in ~/.cargo/bin, which login autostart
+# often does not have on PATH.
+_xidlehook_bin() {
+  if command -v xidlehook >/dev/null 2>&1; then
+    command -v xidlehook
+    return 0
+  fi
+  local cargo_bin="${CARGO_HOME:-$HOME/.cargo}/bin/xidlehook"
+  if [[ -x "$cargo_bin" ]]; then
+    echo "$cargo_bin"
+    return 0
+  fi
+  return 1
+}
+
+_cargo_bin() {
+  if command -v cargo >/dev/null 2>&1; then
+    command -v cargo
+    return 0
+  fi
+  local cargo="${CARGO_HOME:-$HOME/.cargo}/bin/cargo"
+  if [[ -x "$cargo" ]]; then
+    echo "$cargo"
+    return 0
+  fi
+  return 1
+}
+
+# Apt first (some distros package it). Ubuntu/Mint do not, so build with
+# cargo. --not-when-audio needs the default pulse feature.
+_install_xidlehook() {
+  if _xidlehook_bin >/dev/null; then
+    return 0
+  fi
+  if command -v apt-cache >/dev/null 2>&1 && apt-cache show xidlehook >/dev/null 2>&1; then
+    _install_apt xidlehook || true
+    if _xidlehook_bin >/dev/null; then
+      return 0
+    fi
+  fi
+  local cargo
+  cargo="$(_cargo_bin)" || _fail "xidlehook is not in apt on this system. Install cargo (https://rustup.rs), then re-run, or: cargo install xidlehook --bins --locked"
+  if command -v apt-get >/dev/null 2>&1; then
+    echo "Installing xidlehook build dependencies with apt..."
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+      libxcb1-dev libxcb-screensaver0-dev libxss-dev libpulse-dev pkg-config
+  fi
+  echo "Building xidlehook with cargo (first time can take a few minutes)..."
+  # --locked: crates.io latest deps may need a newer rustc than rustup stable.
+  "$cargo" install xidlehook --bins --locked
+  # So the wrapper we start below can find it in this same shell.
+  export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
+  _xidlehook_bin >/dev/null || _fail "cargo install xidlehook finished, but xidlehook is not on PATH. Add ${CARGO_HOME:-$HOME/.cargo}/bin to PATH and re-run."
+}
+
 # Preflight before writing autostart or starting anything.
 echo "Checking dependencies..."
 
@@ -58,11 +113,10 @@ if ! command -v mpv >/dev/null 2>&1; then
   _fail "mpv is still not on PATH after install."
 fi
 
-if ! command -v xidlehook >/dev/null 2>&1; then
-  _install_apt xidlehook || _fail "xidlehook is not installed. Install it (Debian/Ubuntu: sudo apt install xidlehook) and re-run."
-fi
-if ! command -v xidlehook >/dev/null 2>&1; then
-  _fail "xidlehook is still not on PATH after install."
+# xidlehook is not in Ubuntu/Mint apt. Try apt anyway, then cargo.
+_install_xidlehook
+if ! _xidlehook_bin >/dev/null; then
+  _fail "xidlehook is still not installed."
 fi
 
 # Timeout lives on the wrapper, not in config.toml. Ask in minutes; persist
