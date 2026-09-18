@@ -21,6 +21,6 @@ skip_ends = true
 rotate_minutes = 15
 
 # What quits playback: "escape" (default: Escape or q) or "any-input"
-# (keys, mouse buttons, and wheel). The idle screensaver wrapper always
-# passes --exit-on any-input.
+# (keys, mouse buttons, and wheel). Left/Right skip files in both modes.
+# The idle screensaver wrapper always passes --exit-on any-input.
 exit_on = "escape"

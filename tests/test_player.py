@@ -103,12 +103,26 @@ class MpvInputConfTests(unittest.TestCase):
         self.assertNotIn("ANY_UNICODE", conf)
         self.assertNotIn("MBTN_LEFT", conf)
 
+    def test_arrows_skip_in_escape_mode(self) -> None:
+        lines = set(mpv_input_conf("escape").splitlines())
+        self.assertIn("LEFT script-message vidsaver-prev", lines)
+        self.assertIn("RIGHT script-message vidsaver-next", lines)
+        self.assertNotIn("LEFT quit", lines)
+        self.assertNotIn("RIGHT quit", lines)
+
     def test_any_input_quits_on_keys_and_mouse(self) -> None:
         conf = mpv_input_conf("any-input")
         self.assertIn("ANY_UNICODE quit", conf)
         self.assertIn("MBTN_LEFT quit", conf)
         self.assertIn("WHEEL_UP quit", conf)
         self.assertNotIn("MOUSE_MOVE", conf)
+
+    def test_any_input_arrows_skip_not_quit(self) -> None:
+        lines = set(mpv_input_conf("any-input").splitlines())
+        self.assertIn("LEFT script-message vidsaver-prev", lines)
+        self.assertIn("RIGHT script-message vidsaver-next", lines)
+        self.assertNotIn("LEFT quit", lines)
+        self.assertNotIn("RIGHT quit", lines)
 
 
 class MpvArgvTests(unittest.TestCase):

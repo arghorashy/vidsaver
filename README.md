@@ -1,6 +1,6 @@
 # vidsaver
 
-Play every video in a folder fullscreen, looping the playlist. Order is random without replacement each pass, with a 2-video cooldown before a file can play again. Quit with **Escape** or **q**.
+Play every video in a folder fullscreen, looping the playlist. Order is random without replacement each pass, with a 2-video cooldown before a file can play again. **Left** and **Right** skip files (resume at each file's last offset). Quit with **Escape** or **q**.
 
 A sqlite database of videos is kept at `~/.local/state/vidsaver/vidsaver.sqlite` (or `$XDG_STATE_HOME/vidsaver/`). Identity is a sample hash (size plus the first and last 1 MiB).
 
@@ -19,7 +19,7 @@ Copy `config.example.toml` to `./config.toml` or `~/.config/vidsaver/config.toml
 - **`mute`** — `true` (default: no audio on any window) or `false` (audio on the primary window only). Extra windows are always silent.
 - **`skip_ends`** — `true` (default: skip the first and last 30 seconds of each file) or `false` (play from the true start to EOF). Files 60 seconds or shorter always play in full.
 - **`rotate_minutes`** — minutes on the current file before jumping to the next (default 15). If less than a quarter of that interval remains in the file, it plays to the end instead (the trimmed end, when `skip_ends` is on). Each file resumes at its last offset after a pass and after quit; identity is the sample hash, so a rename keeps progress.
-- **`exit_on`** — `"escape"` (default: quit with Escape or **q**) or `"any-input"` (also quit on other keys, mouse buttons, and the wheel). The idle screensaver wrapper always uses `"any-input"`.
+- **`exit_on`** — `"escape"` (default: quit with Escape or **q**) or `"any-input"` (also quit on other keys, mouse buttons, and the wheel). **Left** and **Right** skip files in both modes; they never quit. The idle screensaver wrapper always uses `"any-input"`.
 
 Overrides:
 
@@ -33,7 +33,7 @@ Overrides:
 
 ## Idle screensaver (X11)
 
-After a period with no keyboard or mouse, vidsaver starts. It does **not** run while another window is fullscreen or while audio is playing (typical YouTube / VLC). Any key or mouse button quits. This uses [xidlehook](https://github.com/jD91mZM2/xidlehook); it does not replace a desktop lock screen.
+After a period with no keyboard or mouse, vidsaver starts. It does **not** run while another window is fullscreen or while audio is playing (typical YouTube / VLC). Any key or mouse button quits, except **Left** and **Right**, which skip files. This uses [xidlehook](https://github.com/jD91mZM2/xidlehook); it does not replace a desktop lock screen.
 
 X11 only (`DISPLAY` set, not Wayland). Wayland idle hooks are compositor-specific (GNOME, KDE, Sway, and so on each have their own), so they are not implemented here.
 

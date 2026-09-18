@@ -22,13 +22,16 @@ class FakePlayback:
         time_pos: float,
         nxt: Path,
         *,
+        prev: Path | None = None,
         duration: float | None = 46.0,
     ) -> None:
         self._path = path
         self._time = time_pos
         self._next = nxt
+        self._prev = prev if prev is not None else nxt
         self._duration = duration
         self.go_next_at: float | None = None
+        self.go_prev_at: float | None = None
 
     def current_path(self) -> Path:
         return self._path
@@ -42,9 +45,17 @@ class FakePlayback:
     def peek_next_path(self) -> Path:
         return self._next
 
+    def peek_prev_path(self) -> Path:
+        return self._prev
+
     def go_next(self, start: float = 0.0) -> Path:
         self.go_next_at = start
         self._path = self._next
+        return self._path
+
+    def go_prev(self, start: float = 0.0) -> Path:
+        self.go_prev_at = start
+        self._path = self._prev
         return self._path
 
 
@@ -186,3 +197,20 @@ class RotateTests(unittest.TestCase):
         playback = FakePlayback(self.a, 15.0, self.b, duration=None)
         _rotate(playback, self.progress, finished=False, skip_ends=True)
         self.assertEqual(playback.go_next_at, 0.0)
+
+    def test_backward_saves_offset_and_starts_prev_at_saved(self) -> None:
+        c = self.root / "c.mp4"
+        c.write_bytes(b"ccc")
+        self.progress.sync([self.a, self.b, c])
+        self.progress.set_offset(self.a, 15.0)
+        playback = FakePlayback(self.b, 8.0, nxt=c, prev=self.a)
+        _rotate(
+            playback, self.progress, finished=False, skip_ends=False, backward=True
+        )
+        self.assertEqual(self.progress.get_offset(self.b), 8.0)
+        self.assertEqual(playback.go_prev_at, 15.0)
+        self.assertIsNone(playback.go_next_at)
+        stats = self.store.get_stats(content_id_for(self.b))
+        assert stats is not None
+        self.assertEqual(stats.clip_count, 1)
+        self.assertEqual(stats.watched_sec, 8.0)

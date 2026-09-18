@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Launch vidsaver after idle. Does not kill it when the user moves again;
-# vidsaver itself quits (any key or mouse button when started from here).
+# vidsaver itself quits (any key or mouse button except Left/Right skip).
 # Usage: ./scripts/idle-vidsaver.sh
 # VIDSAVER_IDLE_SECONDS (default 600) is the idle timeout.
 # install-screensaver.sh asks for minutes and bakes the seconds into autostart.
@@ -34,7 +34,8 @@ echo $$ > "$state_dir/idle.pid"
 # Launch-only: xidlehook starts vidsaver and then leaves it alone.
 # --not-when-fullscreen / --not-when-audio skip typical YouTube and VLC.
 # Timer commands go through `sh -c`. The empty abort string means activity
-# after launch does not kill the player; vidsaver quits on any-input instead.
+# after launch does not kill the player; vidsaver quits on any-input
+# (except Left/Right, which skip).
 exec xidlehook \
   --not-when-fullscreen \
   --not-when-audio \

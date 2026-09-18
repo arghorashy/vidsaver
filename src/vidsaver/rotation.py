@@ -112,7 +112,18 @@ def run_rotation(
             leftover = playable_remaining(
                 playback.time_pos(), playback.duration(), skip_ends
             )
-            if playback.eof_reached() or (skip_ends and leftover == 0):
+            skip = playback.skip_request()
+            if skip == "prev" or skip == "next":
+                curr_path = _rotate(
+                    playback,
+                    progress,
+                    finished=False,
+                    skip_ends=skip_ends,
+                    backward=skip == "prev",
+                )
+                deadline = time.monotonic() + rotate_seconds
+                last_save = time.monotonic()
+            elif playback.eof_reached() or (skip_ends and leftover == 0):
                 curr_path = _rotate(
                     playback, progress, finished=True, skip_ends=skip_ends
                 )
@@ -147,16 +158,22 @@ def _rotate(
     *,
     finished: bool,
     skip_ends: bool = True,
+    backward: bool = False,
 ) -> Path | None:
     path = playback.current_path()
     progress.set_offset(path, playback.time_pos(), finished=finished)
-    next_path = playback.peek_next_path()
+    neighbor = (
+        playback.peek_prev_path() if backward else playback.peek_next_path()
+    )
     start = playable_start(
-        progress.get_offset(next_path),
-        progress.get_duration(next_path),
+        progress.get_offset(neighbor),
+        progress.get_duration(neighbor),
         skip_ends,
     )
-    new_path = playback.go_next(start)
+    if backward:
+        new_path = playback.go_prev(start)
+    else:
+        new_path = playback.go_next(start)
     if new_path is not None:
         _log_start(playback, progress, new_path, start)
     return new_path

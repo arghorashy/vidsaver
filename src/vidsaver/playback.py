@@ -1,8 +1,8 @@
 """Talk to the running mpv windows.
 
 This module does not decide when to leave a file or what offset to
-remember. It reports path / time / EOF and can load the next playlist
-entry already seeked to a given time.
+remember. It reports path / time / EOF and can load the next or previous
+playlist entry already seeked to a given time.
 """
 
 from __future__ import annotations
@@ -91,12 +91,18 @@ class Playback:
             return False
 
     def peek_next_path(self) -> Path | None:
+        return self._peek_path(1)
+
+    def peek_prev_path(self) -> Path | None:
+        return self._peek_path(-1)
+
+    def _peek_path(self, delta: int) -> Path | None:
         try:
             pos = self._clients[0].command("get_property", "playlist-pos")
             count = self._clients[0].command("get_property", "playlist-count")
             if pos is None or count is None or int(count) < 1:
                 return None
-            next_pos = (int(pos) + 1) % int(count)
+            next_pos = (int(pos) + delta) % int(count)
             raw = self._clients[0].command(
                 "get_property", f"playlist/{next_pos}/filename"
             )
@@ -106,10 +112,37 @@ class Playback:
             return None
         return _offset_key(Path(str(raw)))
 
-    def go_next(self, start: float = 0.0) -> Path | None:
-        """Load the next playlist entry so the first shown frame is *start*.
+    def skip_request(self) -> str | None:
+        """``"next"`` / ``"prev"`` from mpv ``script-message``, else None.
 
-        Sequence: pause → playlist-next → wait until that file is current →
+        Drains IPC events on every window. A skip is not mpv's raw
+        playlist-next: rotation tallies and seeks like a timer cut.
+        """
+        found: str | None = None
+        for client in self._clients:
+            for event in client.drain_events():
+                if event.get("event") != "client-message":
+                    continue
+                args = event.get("args")
+                if not isinstance(args, list) or not args:
+                    continue
+                name = args[0]
+                if name == "vidsaver-next":
+                    found = "next"
+                elif name == "vidsaver-prev":
+                    found = "prev"
+        return found
+
+    def go_next(self, start: float = 0.0) -> Path | None:
+        """Load the next playlist entry so the first shown frame is *start*."""
+        return self._advance(1, start)
+
+    def go_prev(self, start: float = 0.0) -> Path | None:
+        """Load the previous playlist entry so the first shown frame is *start*."""
+        return self._advance(-1, start)
+
+    def _advance(self, delta: int, start: float) -> Path | None:
+        """Pause → playlist-next/prev → wait until that file is current →
         seek to *start* → unpause. We cannot set mpv's ``start`` option at
         runtime (0.37 rejects it), so the seek has to happen after the new
         file is loaded and before it is allowed to play. At EOF, ``keep-open``
@@ -117,13 +150,14 @@ class Playback:
         next file.
         """
         try:
-            expected = self.peek_next_path()
+            expected = self._peek_path(delta)
             previous_pos = self._playlist_pos()
+            command = "playlist-next" if delta > 0 else "playlist-prev"
             for client in self._clients:
                 client.command("set_property", "pause", True)
                 # Drop leftover file-loaded events so wait does not return early.
                 client.drain_events()
-                client.command("playlist-next")
+                client.command(command)
             new_path = self._wait_for_file(previous_pos, expected) or expected
             if new_path is not None and start > 0:
                 self._seek_all(start)

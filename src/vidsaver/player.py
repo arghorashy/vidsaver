@@ -18,6 +18,8 @@ MPV_INSTALL_HINT = "mpv is not installed. Install it with: sudo apt install mpv"
 # mpv default: Escape leaves fullscreen. For a screensaver, quit instead.
 # any-input does not bind MOUSE_MOVE: the cursor jumps when the window
 # opens and would quit immediately.
+# LEFT/RIGHT are not in this list: they skip files (script-message) in
+# every exit_on mode, including any-input.
 _ANY_INPUT_QUIT = """\
 ANY_UNICODE quit
 SPACE quit
@@ -25,8 +27,6 @@ ENTER quit
 TAB quit
 BS quit
 DEL quit
-LEFT quit
-RIGHT quit
 UP quit
 DOWN quit
 PGUP quit
@@ -42,11 +42,17 @@ WHEEL_UP quit
 WHEEL_DOWN quit
 """
 
+# Appended last so they win over any leftover LEFT/RIGHT quit binds.
+_ARROW_SKIP = """\
+LEFT script-message vidsaver-prev
+RIGHT script-message vidsaver-next
+"""
+
 
 def mpv_input_conf(exit_on: ExitOn = "escape") -> str:
     if exit_on == "any-input":
-        return _ANY_INPUT_QUIT
-    return "ESC quit\nq quit\n"
+        return _ANY_INPUT_QUIT + _ARROW_SKIP
+    return "ESC quit\nq quit\n" + _ARROW_SKIP
 
 
 class PlayerError(Exception):
@@ -76,7 +82,7 @@ def play(
     of files longer than 60 seconds.
     ``exit_on="escape"`` (the default) quits on Escape or q.
     ``exit_on="any-input"`` also quits on other keys, mouse buttons, and
-    the wheel.
+    the wheel. Left and Right skip files in both modes; they never quit.
     """
     mpv = shutil.which("mpv")
     if mpv is None:
