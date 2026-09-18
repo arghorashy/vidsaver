@@ -6,6 +6,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from vidsaver.config import ExitOn
 from vidsaver.mpv_ipc import MpvIpc
 from vidsaver.playback import Playback
 from vidsaver.rotation import playable_start, run_rotation
@@ -15,10 +16,37 @@ from vidsaver.state import Progress
 MPV_INSTALL_HINT = "mpv is not installed. Install it with: sudo apt install mpv"
 
 # mpv default: Escape leaves fullscreen. For a screensaver, quit instead.
-MPV_INPUT_CONF = """\
+# any-input does not bind MOUSE_MOVE: the cursor jumps when the window
+# opens and would quit immediately.
+_ANY_INPUT_QUIT = """\
+ANY_UNICODE quit
+SPACE quit
+ENTER quit
+TAB quit
+BS quit
+DEL quit
+LEFT quit
+RIGHT quit
+UP quit
+DOWN quit
+PGUP quit
+PGDWN quit
+HOME quit
+END quit
 ESC quit
 q quit
+MBTN_LEFT quit
+MBTN_RIGHT quit
+MBTN_MID quit
+WHEEL_UP quit
+WHEEL_DOWN quit
 """
+
+
+def mpv_input_conf(exit_on: ExitOn = "escape") -> str:
+    if exit_on == "any-input":
+        return _ANY_INPUT_QUIT
+    return "ESC quit\nq quit\n"
 
 
 class PlayerError(Exception):
@@ -32,6 +60,7 @@ def play(
     rotate_minutes: float = 15,
     start: float = 0,
     skip_ends: bool = True,
+    exit_on: ExitOn = "escape",
     *,
     progress: Progress,
 ) -> int:
@@ -45,6 +74,9 @@ def play(
     ``start`` is the first file's resume point (mpv ``--start``).
     ``skip_ends=True`` (the default) skips the first and last 30 seconds
     of files longer than 60 seconds.
+    ``exit_on="escape"`` (the default) quits on Escape or q.
+    ``exit_on="any-input"`` also quits on other keys, mouse buttons, and
+    the wheel.
     """
     mpv = shutil.which("mpv")
     if mpv is None:
@@ -65,7 +97,7 @@ def play(
         encoding="utf-8",
         delete=False,
     ) as handle:
-        handle.write(MPV_INPUT_CONF)
+        handle.write(mpv_input_conf(exit_on))
         input_conf = Path(handle.name)
 
     ipc_dir = Path(tempfile.mkdtemp(prefix="vidsaver-ipc-"))

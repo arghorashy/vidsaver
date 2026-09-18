@@ -7,7 +7,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 
-from vidsaver.player import mpv_argv, play
+from vidsaver.player import mpv_argv, mpv_input_conf, play
 from vidsaver.rotation import SKIP_ENDS_SEC
 from vidsaver.state import DBStore, Progress
 
@@ -93,6 +93,22 @@ def _play_primary(
                 progress=progress,
             )
     return code, procs, count
+
+
+class MpvInputConfTests(unittest.TestCase):
+    def test_escape_only_quits_on_esc_and_q(self) -> None:
+        conf = mpv_input_conf("escape")
+        self.assertIn("ESC quit", conf)
+        self.assertIn("q quit", conf)
+        self.assertNotIn("ANY_UNICODE", conf)
+        self.assertNotIn("MBTN_LEFT", conf)
+
+    def test_any_input_quits_on_keys_and_mouse(self) -> None:
+        conf = mpv_input_conf("any-input")
+        self.assertIn("ANY_UNICODE quit", conf)
+        self.assertIn("MBTN_LEFT quit", conf)
+        self.assertIn("WHEEL_UP quit", conf)
+        self.assertNotIn("MOUSE_MOVE", conf)
 
 
 class MpvArgvTests(unittest.TestCase):

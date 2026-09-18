@@ -20,6 +20,7 @@ skip_ends = true
 # Resume points persist across quit; a rename keeps the same progress.
 rotate_minutes = 15
 
-# Future (unused):
-# idle_minutes = 10
-# exit_on = "escape"   # later: "any-input"
+# What quits playback: "escape" (default: Escape or q) or "any-input"
+# (keys, mouse buttons, and wheel). The idle screensaver wrapper always
+# passes --exit-on any-input.
+exit_on = "escape"

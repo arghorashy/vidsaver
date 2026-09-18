@@ -76,6 +76,7 @@ class LoadConfigFileTests(unittest.TestCase):
         self.assertIs(config.mute, True)
         self.assertIs(config.skip_ends, True)
         self.assertEqual(config.rotate_minutes, 15)
+        self.assertEqual(config.exit_on, "escape")
         self.assertIsNone(config.config_path)
 
     # screens
@@ -245,6 +246,41 @@ class LoadConfigFileTests(unittest.TestCase):
             str(ctx.exception),
             f"rotate_minutes in {path} must be a number greater than 0, "
             f"not {'soon'!r}.",
+        )
+
+    # exit_on
+
+    def test_omitted_exit_on_defaults_to_escape(self) -> None:
+        path = _write_toml(self.root / "explicit.toml", 'video_dir = "/videos/a"\n')
+        config = load_config(config_path=path)
+        self.assertEqual(config.exit_on, "escape")
+
+    def test_exit_on_any_input_loads(self) -> None:
+        path = _write_toml(
+            self.root / "explicit.toml",
+            'video_dir = "/videos/a"\nexit_on = "any-input"\n',
+        )
+        config = load_config(config_path=path)
+        self.assertEqual(config.exit_on, "any-input")
+
+    def test_cli_exit_on_overrides_file(self) -> None:
+        path = _write_toml(
+            self.root / "explicit.toml",
+            'video_dir = "/videos/a"\nexit_on = "escape"\n',
+        )
+        config = load_config(config_path=path, exit_on="any-input")
+        self.assertEqual(config.exit_on, "any-input")
+
+    def test_exit_on_invalid_raises(self) -> None:
+        path = _write_toml(
+            self.root / "explicit.toml",
+            'video_dir = "/videos/a"\nexit_on = "mouse"\n',
+        )
+        with self.assertRaises(ConfigError) as ctx:
+            load_config(config_path=path)
+        self.assertEqual(
+            str(ctx.exception),
+            f'exit_on in {path} must be "escape" or "any-input", not {("mouse")!r}.',
         )
 
     # Missing video_dir, blank string, or invalid TOML

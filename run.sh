@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Install runtime deps (mpv) if needed, then run vidsaver.
-# Usage: ./run.sh [--dir FOLDER] [--config FILE]
+# Usage: ./run.sh [--dir FOLDER] [--config FILE] [--exit-on escape|any-input]
 
 # Exit on error, unset variables, and failed commands in a pipeline.
 set -euo pipefail

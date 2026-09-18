@@ -29,10 +29,21 @@ def main(argv: list[str] | None = None) -> int:
         dest="video_dir",
         help="Folder of video files (overrides video_dir in the config)",
     )
+    parser.add_argument(
+        "--exit-on",
+        choices=("escape", "any-input"),
+        default=None,
+        dest="exit_on",
+        help="What quits playback (overrides exit_on in the config)",
+    )
     args = parser.parse_args(argv)
 
     try:
-        config = load_config(config_path=args.config, video_dir=args.video_dir)
+        config = load_config(
+            config_path=args.config,
+            video_dir=args.video_dir,
+            exit_on=args.exit_on,
+        )
         paths = scan(config.video_dir)
         with DBStore(default_db_path()) as db:
             progress = Progress(db)
@@ -46,6 +57,7 @@ def main(argv: list[str] | None = None) -> int:
                 rotate_minutes=config.rotate_minutes,
                 start=start,
                 skip_ends=config.skip_ends,
+                exit_on=config.exit_on,
                 progress=progress,
             )
     except (ConfigError, PlaylistError, PlayerError, StateError) as exc:

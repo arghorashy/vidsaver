@@ -7,6 +7,7 @@ from typing import Literal
 
 APP_NAME = "vidsaver"
 Screens = Literal["primary", "all"]
+ExitOn = Literal["escape", "any-input"]
 
 # config.toml at the project root (this file is src/vidsaver/config.py)
 PROJECT_CONFIG_PATH = Path(__file__).resolve().parents[2] / "config.toml"
@@ -25,10 +26,15 @@ class Config:
     mute: bool = True
     skip_ends: bool = True
     rotate_minutes: float = 15
+    exit_on: ExitOn = "escape"
     config_path: Path | None = None
 
 
-def load_config(config_path: Path | None = None, video_dir: Path | None = None) -> Config:
+def load_config(
+    config_path: Path | None = None,
+    video_dir: Path | None = None,
+    exit_on: ExitOn | None = None,
+) -> Config:
     """Load config from TOML, then apply CLI overrides.
 
     ``video_dir`` (``--dir``) overrides ``video_dir`` from the file.
@@ -36,6 +42,8 @@ def load_config(config_path: Path | None = None, video_dir: Path | None = None) 
     ``mute`` is ``true`` (default) or ``false``.
     ``skip_ends`` is ``true`` (default) or ``false``.
     ``rotate_minutes`` is minutes per file before advancing (default 15).
+    ``exit_on`` is ``"escape"`` (default) or ``"any-input"``.
+    ``exit_on`` (``--exit-on``) overrides ``exit_on`` from the file.
 
     If ``config_path`` (``--config``) is given, that file is required and no
     other locations are checked. Otherwise the first existing file wins:
@@ -80,6 +88,10 @@ def load_config(config_path: Path | None = None, video_dir: Path | None = None) 
         rotate_minutes=_parse_rotate_minutes(
             file_values.get("rotate_minutes", 15), used_path
         ),
+        exit_on=_parse_exit_on(
+            exit_on if exit_on is not None else file_values.get("exit_on", "escape"),
+            used_path,
+        ),
         config_path=used_path,
     )
 
@@ -99,6 +111,15 @@ def _parse_bool(field: str, raw: object, config_path: Path | None) -> bool:
     where = f" in {config_path}" if config_path is not None else ""
     raise ConfigError(
         f"{field}{where} must be true or false, not {raw!r}."
+    )
+
+
+def _parse_exit_on(raw: object, config_path: Path | None) -> ExitOn:
+    if raw == "escape" or raw == "any-input":
+        return raw
+    where = f" in {config_path}" if config_path is not None else ""
+    raise ConfigError(
+        f'exit_on{where} must be "escape" or "any-input", not {raw!r}.'
     )
 
 
